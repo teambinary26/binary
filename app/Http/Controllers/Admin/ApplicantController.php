@@ -44,11 +44,16 @@ class ApplicantController extends Controller
 
     public function show(Applicant $applicant): Response
     {
-        $applicant->load(['profile', 'primaryAddress', 'user', 'applications.program.category']);
+        $applicant->load(['profile', 'primaryAddress', 'user']);
+
+        $applications = $applicant->applications()
+            ->with(['program.category'])
+            ->latest()
+            ->paginate(15);
 
         return Inertia::render('Admin/Applicants/Show', [
             'applicant' => CamData::applicant($applicant),
-            'applications' => $applicant->applications->map(fn ($a) => CamData::applicationRow($a))->values(),
+            'applications' => CamData::paginator($applications, fn ($a) => CamData::applicationRow($a)),
         ]);
     }
 

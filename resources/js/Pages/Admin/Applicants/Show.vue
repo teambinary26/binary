@@ -2,11 +2,12 @@
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import Pagination from '@/Components/Pagination.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 
 defineProps({
     applicant: { type: Object, required: true },
-    applications: { type: Array, default: () => [] },
+    applications: { type: Object, required: true },
 });
 </script>
 
@@ -29,7 +30,10 @@ defineProps({
                 <table class="data-table">
                     <thead><tr><th>No.</th><th>Program</th><th>Status</th><th /></tr></thead>
                     <tbody>
-                        <tr v-for="row in applications" :key="row.id">
+                        <tr v-if="!applications.data.length">
+                            <td class="px-4 py-6 text-sm text-gov-muted" colspan="4">No applications on file.</td>
+                        </tr>
+                        <tr v-for="row in applications.data" :key="row.id">
                             <td data-label="No.">{{ row.application_no }}</td>
                             <td data-label="Program">{{ row.program?.name }}</td>
                             <td data-label="Status"><StatusBadge :label="row.status_label" :tone="row.status_tone" /></td>
@@ -37,6 +41,7 @@ defineProps({
                         </tr>
                     </tbody>
                 </table>
+                <div class="px-4 pb-4"><Pagination :paginator="applications" /></div>
             </div>
         </div>
     </AdminLayout>

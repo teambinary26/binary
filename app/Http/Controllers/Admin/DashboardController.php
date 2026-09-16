@@ -40,8 +40,7 @@ class DashboardController extends Controller
         $recent = Application::query()
             ->with(['applicant', 'program.category', 'assignedStaff'])
             ->latest('submitted_at')
-            ->limit(10)
-            ->get();
+            ->paginate(10);
 
         $byMonth = Application::query()
             ->get(['submitted_at', 'created_at'])
@@ -84,7 +83,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Admin/Dashboard', [
             'stats' => $stats,
-            'recent' => $recent->map(fn ($a) => CamData::applicationRow($a))->values(),
+            'recent' => CamData::paginator($recent, fn ($a) => CamData::applicationRow($a)),
             'chartMonth' => ['labels' => $byMonth->keys()->values(), 'data' => $byMonth->values()->map(fn ($v) => (int) $v)->values()],
             'chartProgram' => ['labels' => $byProgram->keys()->values(), 'data' => $byProgram->values()->map(fn ($v) => (int) $v)->values()],
             'chartType' => [

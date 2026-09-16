@@ -34,6 +34,15 @@ defineProps({
                         </li>
                     </ul>
                 </div>
+                <div v-if="program.form_fields?.length" class="panel">
+                    <div class="panel-h">Application questions</div>
+                    <ul class="divide-y divide-gov-border">
+                        <li v-for="field in program.form_fields" :key="field.name" class="px-4 py-3 text-sm">
+                            <p class="font-bold">{{ field.label }} <span v-if="field.is_required" class="badge badge-danger">Required</span></p>
+                            <p v-if="field.help_text" class="text-gov-muted">{{ field.help_text }}</p>
+                        </li>
+                    </ul>
+                </div>
                 <div class="panel">
                     <div class="panel-h">Eligibility checklist</div>
                     <ul class="list-disc px-8 py-4 text-sm">

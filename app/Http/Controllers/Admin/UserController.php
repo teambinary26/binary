@@ -21,30 +21,37 @@ class UserController extends Controller
     public function index(Request $request): Response
     {
         $currentId = $request->user()?->id;
-        $users = User::query()->with('role')->orderBy('name')->paginate(20);
+
+        $mapUser = fn (User $row) => [
+            'id' => $row->id,
+            'name' => $row->name,
+            'email' => $row->email,
+            'role' => $row->role?->name,
+            'office' => $row->office,
+            'is_active' => $row->is_active,
+            'is_staff' => $row->isStaff(),
+            'is_applicant' => $row->isApplicant(),
+            'can_delete' => $row->id !== $currentId,
+            'last_login_at' => gov_datetime($row->last_login_at),
+        ];
+
+        $byRole = fn (string $slug, string $pageName) => User::query()
+            ->with('role')
+            ->whereHas('role', fn ($query) => $query->where('slug', $slug))
+            ->orderBy('name')
+            ->paginate(10, ['*'], $pageName);
 
         return Inertia::render('Admin/Users/Index', [
-            'users' => CamData::paginator($users, fn (User $row) => [
-                'id' => $row->id,
-                'name' => $row->name,
-                'email' => $row->email,
-                'role' => $row->role?->name,
-                'office' => $row->office,
-                'is_active' => $row->is_active,
-                'is_staff' => $row->isStaff(),
-                'is_applicant' => $row->isApplicant(),
-                'can_delete' => $row->id !== $currentId,
-                'last_login_at' => gov_datetime($row->last_login_at),
-            ]),
+            'administrators' => CamData::paginator($byRole('administrator', 'admin_page'), $mapUser),
+            'staff' => CamData::paginator($byRole('staff', 'staff_page'), $mapUser),
+            'applicants' => CamData::paginator($byRole('applicant', 'applicant_page'), $mapUser),
+            'roles' => $this->staffRoles(),
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('Admin/Users/Form', [
-            'staff' => null,
-            'roles' => $this->staffRoles(),
-        ]);
+        return redirect()->route('admin.users.index');
     }
 
     public function store(Request $request, AuditService $audit): RedirectResponse

@@ -138,6 +138,7 @@ class ProgramController extends Controller
 
         if ($request->has('fields')) {
             $program->formFields()->delete();
+            $usedNames = [];
             foreach ($request->input('fields', []) as $index => $row) {
                 if (blank($row['label'] ?? null)) {
                     continue;
@@ -146,7 +147,7 @@ class ProgramController extends Controller
                     ? array_values(array_filter(array_map('trim', explode(',', $row['options']))))
                     : null;
                 $program->formFields()->create([
-                    'name' => Str::slug($row['name'] ?? $row['label'], '_'),
+                    'name' => $this->uniqueFieldName($row['name'] ?? null, $row['label'], $usedNames),
                     'label' => $row['label'],
                     'type' => $row['type'] ?? 'text',
                     'options' => $options,
@@ -183,5 +184,27 @@ class ProgramController extends Controller
                 ]);
             }
         }
+    }
+
+    /**
+     * @param  list<string>  $usedNames
+     */
+    private function uniqueFieldName(?string $name, string $label, array &$usedNames): string
+    {
+        $base = Str::slug($name ?: $label, '_');
+        if ($base === '') {
+            $base = 'field';
+        }
+
+        $candidate = $base;
+        $suffix = 2;
+        while (in_array($candidate, $usedNames, true)) {
+            $candidate = $base.'_'.$suffix;
+            $suffix++;
+        }
+
+        $usedNames[] = $candidate;
+
+        return $candidate;
     }
 }

@@ -27,7 +27,7 @@ onMounted(async () => {
         <PageHeader :title="application.application_no" kicker="Application tracking" :document-no="application.program?.name">
             <template #actions>
                 <Link v-if="application.can_edit" class="btn-primary btn-sm w-full text-center sm:w-auto" :href="application.continue_path || route('applicant.apply.documents', application.id)">
-                    {{ application.needs_document_action ? 'Replace documents' : 'Continue / upload requirements' }}
+                    {{ application.needs_document_action ? 'Replace documents' : 'Continue application' }}
                 </Link>
             </template>
         </PageHeader>
@@ -69,6 +69,15 @@ onMounted(async () => {
                         <div class="px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Program</dt><dd class="break-words">{{ application.program?.name }}</dd></div>
                         <div class="px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Submitted</dt><dd class="break-words">{{ application.submitted_at_full }}</dd></div>
                         <div class="px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Approved amount</dt><dd class="break-words">{{ application.approved_amount_formatted }}</dd></div>
+                    </dl>
+                </div>
+                <div v-if="application.answers?.length" class="panel">
+                    <div class="panel-h">Submitted information</div>
+                    <dl class="divide-y divide-gov-border text-sm">
+                        <div v-for="answer in application.answers" :key="answer.field_name" class="px-4 py-2">
+                            <dt class="text-xs font-bold uppercase text-gov-muted">{{ answer.field_label }}</dt>
+                            <dd class="break-words">{{ answer.value || '—' }}</dd>
+                        </div>
                     </dl>
                 </div>
                 <div v-if="application.history?.length" class="panel">

@@ -51,9 +51,9 @@ class ProfileController extends Controller
 
         $applicant->profile->update([
             'beneficiary_type' => $data['beneficiary_type'],
-            'school_name' => $data['school_name'] ?? null,
-            'course_or_program' => $data['course_or_program'] ?? null,
-            'year_level' => $data['year_level'] ?? null,
+            'school_name' => $data['beneficiary_type'] === 'student' ? ($data['school_name'] ?? null) : null,
+            'course_or_program' => $data['beneficiary_type'] === 'student' ? ($data['course_or_program'] ?? null) : null,
+            'year_level' => $data['beneficiary_type'] === 'student' ? ($data['year_level'] ?? null) : null,
         ]);
 
         $applicant->primaryAddress->update([

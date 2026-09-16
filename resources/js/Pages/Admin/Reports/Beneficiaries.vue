@@ -2,11 +2,12 @@
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 defineProps({
-    byBarangay: { type: Array, default: () => [] },
-    byType: { type: Array, default: () => [] },
-    bySex: { type: Array, default: () => [] },
+    byBarangay: { type: Object, required: true },
+    byType: { type: Object, required: true },
+    bySex: { type: Object, required: true },
 });
 
 const csvHref = () => {
@@ -31,12 +32,13 @@ const csvHref = () => {
                 <table class="data-table">
                     <thead><tr><th>Barangay</th><th>Applicants</th></tr></thead>
                     <tbody>
-                        <tr v-for="row in byBarangay" :key="row.barangay">
+                        <tr v-for="row in byBarangay.data" :key="row.barangay">
                             <td data-label="Barangay">{{ row.barangay }}</td>
                             <td data-label="Total">{{ row.total }}</td>
                         </tr>
                     </tbody>
                 </table>
+                <div class="px-4 pb-4 no-print"><Pagination :paginator="byBarangay" /></div>
             </div>
             <div class="space-y-4">
                 <div class="panel">
@@ -44,24 +46,26 @@ const csvHref = () => {
                     <table class="data-table">
                         <thead><tr><th>Type</th><th>Total</th></tr></thead>
                         <tbody>
-                            <tr v-for="row in byType" :key="row.type">
+                            <tr v-for="row in byType.data" :key="row.type">
                                 <td data-label="Type">{{ row.type }}</td>
                                 <td data-label="Total">{{ row.total }}</td>
                             </tr>
                         </tbody>
                     </table>
+                    <div class="px-4 pb-4 no-print"><Pagination :paginator="byType" /></div>
                 </div>
                 <div class="panel">
                     <div class="panel-h">By sex</div>
                     <table class="data-table">
                         <thead><tr><th>Sex</th><th>Total</th></tr></thead>
                         <tbody>
-                            <tr v-for="row in bySex" :key="row.sex">
+                            <tr v-for="row in bySex.data" :key="row.sex">
                                 <td data-label="Sex">{{ row.sex }}</td>
                                 <td data-label="Total">{{ row.total }}</td>
                             </tr>
                         </tbody>
                     </table>
+                    <div class="px-4 pb-4 no-print"><Pagination :paginator="bySex" /></div>
                 </div>
             </div>
         </div>

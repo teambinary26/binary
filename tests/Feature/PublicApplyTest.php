@@ -52,8 +52,10 @@ beforeEach(function () {
     ]);
 });
 
-function publicApplyFields(string $otp, array $overrides = []): array
+function publicApplyFields(string $otp, array $overrides = [], ?AssistanceProgram $program = null): array
 {
+    $program ??= openStudentProgram();
+
     return array_merge([
         'full_name' => 'Ana Public Applicant',
         'date_of_birth' => '2005-03-15',
@@ -76,7 +78,28 @@ function publicApplyFields(string $otp, array $overrides = []): array
         'otp' => $otp,
         'eligibility_confirmed' => 1,
         'turnstile_token' => 'test-token',
+        'answers' => sampleFormAnswers($program),
     ], $overrides);
+}
+
+function sampleFormAnswers(AssistanceProgram $program): array
+{
+    $program->loadMissing('formFields');
+    $answers = [];
+
+    foreach ($program->formFields as $field) {
+        $answers[$field->name] = match (true) {
+            $field->name === 'school_name' => 'Nabua National High School',
+            $field->name === 'course_or_program' => 'General Academic Strand',
+            $field->name === 'year_level' => 'Grade 12',
+            $field->type === 'number' => '1500',
+            $field->type === 'date' => '2026-01-15',
+            $field->type === 'select' && filled($field->options) => $field->options[0],
+            default => 'Sample '.$field->label,
+        };
+    }
+
+    return $answers;
 }
 
 function openStudentProgram(): AssistanceProgram
@@ -113,6 +136,7 @@ test('apply page includes eligibility details for an open program', function () 
             ->where('turnstilePassed', false)
             ->has('program.eligibility')
             ->has('program.eligibility_rules')
+            ->has('program.form_fields')
         );
 });
 
@@ -416,4 +440,53 @@ test('admin approval emails a generated password for pending applicants', functi
     Mail::assertSent(ApplicationApprovedMail::class, function (ApplicationApprovedMail $mail) {
         return $mail->hasTo('ana.public@example.com') && filled($mail->password);
     });
+});
+
+test('non-student public apply does not require school fields', function () {
+    $program = AssistanceProgram::query()->where('code', 'LIV-001')->firstOrFail();
+
+    $this->postJson(route('site.apply.otp', $program), [
+        'turnstile_token' => 'test-token',
+        'full_name' => 'Ana Public Applicant',
+        'email' => 'ana.nonstudent@example.com',
+    ])->assertOk();
+
+    $otp = capturedOtp('ana.nonstudent@example.com');
+
+    $this->post((string) route('site.apply.store', $program), publicApplyFields($otp, [
+        'email' => 'ana.nonstudent@example.com',
+        'beneficiary_type' => 'non_student',
+        'school_name' => '',
+        'course_or_program' => '',
+        'year_level' => '',
+    ], $program))->assertRedirect(route('site.apply.success'));
+
+    $application = Application::query()
+        ->whereHas('applicant', fn ($query) => $query->where('email', 'ana.nonstudent@example.com'))
+        ->firstOrFail();
+
+    expect($application->applicant->profile->beneficiary_type)->toBe(BeneficiaryType::NonStudent)
+        ->and($application->applicant->profile->school_name)->toBeNull()
+        ->and($application->applicant->profile->course_or_program)->toBeNull()
+        ->and($application->applicant->profile->year_level)->toBeNull();
+});
+
+test('student public apply still requires school name', function () {
+    $program = openStudentProgram();
+
+    $this->postJson(route('site.apply.otp', $program), [
+        'turnstile_token' => 'test-token',
+        'full_name' => 'Ana Public Applicant',
+        'email' => 'ana.needs-school@example.com',
+    ])->assertOk();
+
+    $otp = capturedOtp('ana.needs-school@example.com');
+
+    $this->from((string) route('site.apply.create', $program))
+        ->post((string) route('site.apply.store', $program), publicApplyFields($otp, [
+            'email' => 'ana.needs-school@example.com',
+            'school_name' => '',
+        ], $program))
+        ->assertRedirect(route('site.apply.create', $program))
+        ->assertSessionHasErrors('school_name');
 });

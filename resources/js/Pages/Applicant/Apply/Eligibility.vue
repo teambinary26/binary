@@ -29,7 +29,7 @@ const submit = () => form.post(route('applicant.apply.eligibility.store', props.
                         I confirm that I meet the eligibility conditions of this program and that the information I will provide is true and complete.
                     </label>
                     <p v-if="form.errors.confirm" class="field-error">{{ form.errors.confirm }}</p>
-                    <button class="btn-primary mt-4 w-full sm:w-auto" type="submit" :disabled="form.processing">Continue to requirements</button>
+                    <button class="btn-primary mt-4 w-full sm:w-auto" type="submit" :disabled="form.processing">Continue</button>
                 </form>
             </div>
         </div>

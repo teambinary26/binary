@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AssistanceProgram;
 use App\Models\ProgramRequirement;
+use App\Support\CamData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,18 +15,20 @@ class RequirementController extends Controller
 {
     public function index(): Response
     {
-        $programs = AssistanceProgram::query()->with('requirements')->orderBy('name')->get();
+        $programs = AssistanceProgram::query()->with('requirements')->orderBy('name')->paginate(10);
 
         return Inertia::render('Admin/Requirements/Index', [
-            'programs' => $programs->map(fn ($p) => [
+            'programs' => CamData::paginator($programs, fn ($p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'requirements' => $p->requirements->map(fn ($r) => [
                     'id' => $r->id,
                     'name' => $r->name,
+                    'description' => $r->description,
                     'is_required' => $r->is_required,
                 ])->values(),
-            ])->values(),
+            ]),
+            'programOptions' => AssistanceProgram::query()->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

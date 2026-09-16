@@ -3,13 +3,14 @@ import { computed } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 
 const page = usePage();
 const gov = computed(() => page.props.gov);
 
 const props = defineProps({
-    programs: { type: Array, default: () => [] },
+    programs: { type: Object, required: true },
     categories: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
 });
@@ -72,7 +73,7 @@ const submit = () => form.get(route('site.programs.index'), { preserveState: tru
             </form>
 
             <div class="grid gap-4">
-                <article v-for="program in programs" :key="program.id" class="panel">
+                <article v-for="program in programs.data" :key="program.id" class="panel">
                     <div class="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-gov-border bg-white px-4 py-2 text-gov-dark">
                         <h2 class="text-base font-bold sm:text-lg">{{ program.name }}</h2>
                         <span class="badge badge-neutral bg-white text-gov-dark">{{ program.code }}</span>
@@ -98,7 +99,8 @@ const submit = () => form.get(route('site.programs.index'), { preserveState: tru
                         </div>
                     </div>
                 </article>
-                <p v-if="!programs.length" class="panel panel-body text-sm text-gov-muted">No programs match the selected filters.</p>
+                <p v-if="!programs.data.length" class="panel panel-body text-sm text-gov-muted">No programs match the selected filters.</p>
+                <Pagination :paginator="programs" />
             </div>
         </div>
     </PublicLayout>

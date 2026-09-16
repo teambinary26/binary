@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 
 const page = usePage();
@@ -10,7 +11,7 @@ const gov = computed(() => page.props.gov);
 const auth = computed(() => page.props.auth?.user);
 
 defineProps({
-    programs: { type: Array, default: () => [] },
+    programs: { type: Object, required: true },
     announcements: { type: Array, default: () => [] },
     quick: { type: Array, default: () => [] },
 });
@@ -109,7 +110,7 @@ const applyHref = computed(() => (auth.value ? route('applicant.programs.index')
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="program in programs" :key="program.id">
+                            <tr v-for="program in programs.data" :key="program.id">
                                 <td data-label="Program" class="font-semibold">{{ program.name }}<div class="text-xs text-gov-muted">{{ program.code }}</div></td>
                                 <td data-label="Category">{{ program.category?.name }}</td>
                                 <td data-label="Beneficiary">{{ program.beneficiary_label }}</td>
@@ -122,6 +123,7 @@ const applyHref = computed(() => (auth.value ? route('applicant.programs.index')
                         </tbody>
                     </table>
                 </div>
+                <Pagination :paginator="programs" />
             </div>
         </section>
 

@@ -1,16 +1,17 @@
 <script setup>
-import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
     approved: { type: String, required: true },
     released: { type: String, required: true },
     pending: { type: String, required: true },
-    byProgram: { type: Array, default: () => [] },
+    byProgram: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
+    generated_at: { type: String, default: '' },
 });
 
 const form = useForm({
@@ -20,13 +21,13 @@ const form = useForm({
 
 const submit = () => form.get(route('admin.reports.financial'), { preserveState: true });
 
-const csvHref = computed(() => {
+const exportHref = (format) => {
     const url = new URL(route('admin.reports.financial'), window.location.origin);
     if (form.date_from) url.searchParams.set('date_from', form.date_from);
     if (form.date_to) url.searchParams.set('date_to', form.date_to);
-    url.searchParams.set('export', 'csv');
+    url.searchParams.set('export', format);
     return url.pathname + url.search;
-});
+};
 </script>
 
 <template>
@@ -34,11 +35,11 @@ const csvHref = computed(() => {
         <Head title="Financial Report" />
         <PageHeader title="Financial Report" kicker="Assistance amounts">
             <template #actions>
-                <button class="btn-ghost btn-sm no-print" type="button" @click="window.print()">Print / PDF</button>
-                <a class="btn-secondary btn-sm no-print" :href="csvHref">Export CSV / Excel</a>
+                <a class="btn-secondary btn-sm" :href="exportHref('excel')">Export Excel</a>
+                <a class="btn-secondary btn-sm" :href="exportHref('pdf')">Export PDF</a>
             </template>
         </PageHeader>
-        <form class="panel mb-4 no-print" @submit.prevent="submit">
+        <form class="panel mb-4" @submit.prevent="submit">
             <div class="grid gap-3 p-4 md:grid-cols-3">
                 <div><label>Period from</label><input v-model="form.date_from" type="date"></div>
                 <div><label>Period to</label><input v-model="form.date_to" type="date"></div>
@@ -53,12 +54,16 @@ const csvHref = computed(() => {
         <table class="data-table">
             <thead><tr><th>Program</th><th>No. of releases</th><th>Amount by program</th></tr></thead>
             <tbody>
-                <tr v-for="row in byProgram" :key="row.name">
+                <tr v-if="!byProgram.data.length">
+                    <td class="px-4 py-6 text-sm text-gov-muted" colspan="3">No releases match the current period.</td>
+                </tr>
+                <tr v-for="row in byProgram.data" :key="row.name">
                     <td data-label="Program">{{ row.name }}</td>
                     <td data-label="Count">{{ row.count }}</td>
                     <td data-label="Amount">{{ row.total }}</td>
                 </tr>
             </tbody>
         </table>
+        <Pagination :paginator="byProgram" />
     </AdminLayout>
 </template>

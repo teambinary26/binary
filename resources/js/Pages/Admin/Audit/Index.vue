@@ -50,6 +50,6 @@ const submit = () => form.get(route('admin.audit-logs.index'), { preserveState: 
             </tbody>
         </table>
         <p class="mt-2 text-xs text-gov-muted">Audit records cannot be edited or deleted by administrators.</p>
-        <Pagination :links="logs.links" />
+        <Pagination :paginator="logs" />
     </AdminLayout>
 </template>

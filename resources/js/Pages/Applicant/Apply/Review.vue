@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import ApplicantLayout from '@/Layouts/ApplicantLayout.vue';
@@ -12,13 +13,15 @@ const props = defineProps({
 const documentFor = (requirementId) => props.application.documents.find((d) => d.requirement_id === requirementId);
 const form = useForm({});
 const submit = () => form.post(route('applicant.apply.submit', props.application.id));
+const hasFormFields = computed(() => (props.application.program_detail?.form_fields || []).length > 0);
+const reviewKicker = computed(() => hasFormFields.value ? 'Step 3 — Review and submit' : 'Step 2 — Review and submit');
 </script>
 
 <template>
     <ApplicantLayout>
         <Head title="Review Application" />
-        <PageHeader :title="application.program?.name" kicker="Step 4 — Review and submit" :document-no="application.application_no" />
-        <ApplySteps :application-id="application.id" />
+        <PageHeader :title="application.program?.name" :kicker="reviewKicker" :document-no="application.application_no" />
+        <ApplySteps :application="application" />
         <div class="grid gap-4 lg:grid-cols-2">
             <div class="panel">
                 <div class="panel-h">Applicant</div>
@@ -63,6 +66,7 @@ const submit = () => form.post(route('applicant.apply.submit', props.application
             </div>
         </div>
         <form v-else class="mt-4" @submit.prevent="submit">
+            <p v-if="form.errors.form" class="mb-3 field-error">{{ form.errors.form }}</p>
             <p class="mb-3 break-words text-sm">By submitting, you certify that the information and documents are true. Providing false information may result in denial of assistance and administrative action.</p>
             <button class="btn-primary w-full sm:w-auto" type="submit" :disabled="form.processing">Submit application</button>
         </form>

@@ -103,6 +103,13 @@ test('submitting a completed application assigns verification staff', function (
         $copy->save();
     }
 
+    $source->loadMissing('answers');
+    foreach ($source->answers as $answer) {
+        $copy = $answer->replicate();
+        $copy->application_id = $application->id;
+        $copy->save();
+    }
+
     $this->actingAs($source->applicant->user)
         ->post(route('applicant.apply.submit', $application))
         ->assertRedirect(route('applicant.applications.show', $application));

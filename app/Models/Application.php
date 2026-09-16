@@ -133,6 +133,36 @@ class Application extends Model
         ])->all();
     }
 
+    public function missingRequiredFormAnswers(): \Illuminate\Support\Collection
+    {
+        $this->loadMissing(['program.formFields', 'answers']);
+
+        if (! $this->program) {
+            return collect();
+        }
+
+        $saved = $this->answerMap();
+
+        return $this->program->formFields
+            ->filter(fn ($field) => $field->is_required && blank($saved[$field->name] ?? null))
+            ->values();
+    }
+
+    public function needsFormStep(): bool
+    {
+        $this->loadMissing(['program.formFields', 'answers']);
+
+        if (! $this->program || $this->program->formFields->isEmpty()) {
+            return false;
+        }
+
+        if ($this->missingRequiredFormAnswers()->isNotEmpty()) {
+            return true;
+        }
+
+        return $this->current_step < 3 && $this->answers->isEmpty();
+    }
+
     public function documentForRequirement(int $requirementId): ?DocumentSubmission
     {
         return $this->documents->firstWhere('program_requirement_id', $requirementId);
@@ -155,6 +185,10 @@ class Application extends Model
 
     public function continuePath(): string
     {
+        if ($this->needsFormStep()) {
+            return route('applicant.apply.form', $this);
+        }
+
         if ($this->needsDocumentAction()) {
             return route('applicant.apply.documents', $this);
         }

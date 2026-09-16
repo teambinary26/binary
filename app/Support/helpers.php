@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ApplicationStatus;
+use App\Models\SystemSetting;
 use Illuminate\Support\Carbon;
 
 if (! function_exists('peso')) {
@@ -54,10 +55,24 @@ if (! function_exists('status_label')) {
 if (! function_exists('gov')) {
     function gov(?string $key = null, mixed $default = null): mixed
     {
-        if ($key === null) {
-            return config('cams');
+        $config = config('cams', []);
+
+        try {
+            $stored = SystemSetting::allValues();
+            foreach (SystemSetting::IDENTITY_KEYS as $identityKey) {
+                $value = $stored[$identityKey] ?? null;
+                if ($value !== null && $value !== '') {
+                    $config[$identityKey] = $value;
+                }
+            }
+        } catch (Throwable) {
+            // Settings may be unavailable before migrations have run.
         }
 
-        return config('cams.'.$key, $default);
+        if ($key === null) {
+            return $config;
+        }
+
+        return $config[$key] ?? $default;
     }
 }

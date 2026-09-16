@@ -81,7 +81,7 @@ const confirmRemove = () => {
                 </tr>
             </tbody>
         </table>
-        <Pagination :links="programs.links" />
+        <Pagination :paginator="programs" />
 
         <ConfirmModal
             :show="Boolean(pending)"

@@ -4,6 +4,7 @@ import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import Turnstile from '@/Components/Turnstile.vue';
+import ProgramFormFields from '@/Components/ProgramFormFields.vue';
 import { currentCsrfToken } from '@/bootstrap';
 import { useNotify } from '@/composables/useNotify';
 
@@ -117,6 +118,32 @@ const onTurnstileExpired = () => {
     turnstileChecking.value = false;
 };
 
+const PROFILE_FORM_KEYS = ['school_name', 'course_or_program', 'year_level'];
+const STUDENT_FIELD_KEYS = [
+    'school_name',
+    'course_or_program',
+    'year_level',
+    'education_level',
+    'student_id_no',
+    'student_number',
+    'student_id',
+    'grade_level',
+    'tuition_amount',
+    'term',
+    'supplies_needed',
+    'school_location',
+    'usual_transport',
+    'estimated_daily_fare',
+];
+const programFormFields = computed(() => props.program.form_fields || []);
+const extraFormFields = computed(() => programFormFields.value.filter((field) => ! PROFILE_FORM_KEYS.includes(field.name)));
+const initialBeneficiaryType = props.program.beneficiary_type === 'non_student' ? 'non_student' : 'student';
+
+const initialAnswers = {};
+(props.program.form_fields || []).forEach((field) => {
+    initialAnswers[field.name] = '';
+});
+
 const form = useForm({
     eligibility_confirmed: false,
     turnstile_token: '',
@@ -138,11 +165,34 @@ const form = useForm({
     is_pwd: false,
     pwd_type: '',
     pwd_type_detail: '',
-    beneficiary_type: 'student',
+    beneficiary_type: initialBeneficiaryType,
     school_name: '',
     course_or_program: '',
     year_level: '',
     otp: '',
+    answers: initialAnswers,
+});
+
+const isStudent = computed(() => form.beneficiary_type === 'student');
+const disabledStudentFieldNames = computed(() => (isStudent.value ? [] : STUDENT_FIELD_KEYS));
+
+const clearStudentFields = () => {
+    form.school_name = '';
+    form.course_or_program = '';
+    form.year_level = '';
+    PROFILE_FORM_KEYS.forEach((key) => form.clearErrors(key));
+    programFormFields.value.forEach((field) => {
+        if (STUDENT_FIELD_KEYS.includes(field.name)) {
+            form.answers[field.name] = '';
+            form.clearErrors(`answers.${field.name}`);
+        }
+    });
+};
+
+watch(() => form.beneficiary_type, (type) => {
+    if (type === 'non_student') {
+        clearStudentFields();
+    }
 });
 
 const fullName = computed(() => [form.first_name, form.middle_name, form.last_name]
@@ -195,20 +245,40 @@ const goBack = () => {
     }
 };
 
+const syncProfileAnswers = () => {
+    programFormFields.value.forEach((field) => {
+        if (PROFILE_FORM_KEYS.includes(field.name)) {
+            form.answers[field.name] = isStudent.value ? form[field.name] : '';
+        }
+    });
+};
+
 const validateStepOne = () => {
+    syncProfileAnswers();
+
     const required = [
         'first_name', 'last_name', 'date_of_birth', 'sex', 'street', 'barangay', 'municipality', 'province',
-        'contact_number', 'email', 'mother_name', 'mother_occupation', 'father_name', 'father_occupation', 'school_name',
+        'contact_number', 'email', 'mother_name', 'mother_occupation', 'father_name', 'father_occupation',
     ];
 
-    if (form.beneficiary_type === 'student') {
-        required.push('course_or_program', 'year_level');
+    if (isStudent.value) {
+        required.push('school_name', 'course_or_program', 'year_level');
     }
 
     let ok = true;
     required.forEach((field) => {
         if (! String(form[field] || '').trim()) {
             form.setError(field, 'This field is required.');
+            ok = false;
+        }
+    });
+
+    extraFormFields.value.forEach((field) => {
+        if (! isStudent.value && STUDENT_FIELD_KEYS.includes(field.name)) {
+            return;
+        }
+        if (field.is_required && ! String(form.answers[field.name] ?? '').trim()) {
+            form.setError(`answers.${field.name}`, 'This field is required.');
             ok = false;
         }
     });
@@ -333,6 +403,7 @@ watch(() => step.value, (value) => {
 });
 
 const submit = () => {
+    syncProfileAnswers();
     form.otp = otpDigits.value.join('');
     form.turnstile_token = turnstileToken.value;
     form.transform((data) => ({
@@ -343,11 +414,18 @@ const submit = () => {
         is_pwd: data.is_pwd ? 1 : 0,
         pwd_type: data.is_pwd ? data.pwd_type : '',
         pwd_type_detail: data.is_pwd && data.pwd_type === 'other' ? data.pwd_type_detail : '',
+        answers: data.answers || {},
     })).post(route('site.apply.store', props.program.slug, false), {
         forceFormData: true,
         preserveScroll: true,
         onFinish: () => stopTimer(),
         onError: (errors) => {
+            const keys = Object.keys(errors);
+            if (keys.some((key) => key === 'eligibility_confirmed')) {
+                step.value = 1;
+            } else if (keys.some((key) => key !== 'otp' && key !== 'turnstile_token')) {
+                step.value = 2;
+            }
             if (errors.turnstile_token) {
                 notify.error(errors.turnstile_token);
                 turnstileToken.value = '';
@@ -548,27 +626,39 @@ const submit = () => {
                                 <div>
                                     <label>Beneficiary type</label>
                                     <select v-model="form.beneficiary_type">
-                                        <option value="student">Student</option>
-                                        <option value="non_student">Non-student</option>
+                                        <option value="student" :disabled="program.beneficiary_type === 'non_student'">Student</option>
+                                        <option value="non_student" :disabled="program.beneficiary_type === 'student'">Non-student</option>
                                     </select>
                                     <p v-if="form.errors.beneficiary_type" class="field-error">{{ form.errors.beneficiary_type }}</p>
                                 </div>
                                 <div>
                                     <label>Name of school</label>
-                                    <input v-model="form.school_name" type="text">
+                                    <input v-model="form.school_name" type="text" :disabled="! isStudent">
                                     <p v-if="form.errors.school_name" class="field-error">{{ form.errors.school_name }}</p>
                                 </div>
                                 <div>
                                     <label>Course / program</label>
-                                    <input v-model="form.course_or_program" type="text" placeholder="e.g. General Academic Strand">
+                                    <input v-model="form.course_or_program" type="text" placeholder="e.g. General Academic Strand" :disabled="! isStudent">
                                     <p v-if="form.errors.course_or_program" class="field-error">{{ form.errors.course_or_program }}</p>
                                 </div>
                                 <div>
                                     <label>Year level</label>
-                                    <input v-model="form.year_level" type="text" placeholder="e.g. Grade 12 / 1st Year College">
+                                    <input v-model="form.year_level" type="text" placeholder="e.g. Grade 12 / 1st Year College" :disabled="! isStudent">
                                     <p v-if="form.errors.year_level" class="field-error">{{ form.errors.year_level }}</p>
                                 </div>
                             </div>
+                        </section>
+
+                        <section v-if="extraFormFields.length">
+                            <h3 class="form-section-title">Program information</h3>
+                            <p class="mb-3 text-sm text-gov-muted">These questions were added for this assistance program and will be used in review, evaluation, and document matching.</p>
+                            <ProgramFormFields
+                                :fields="extraFormFields"
+                                :model="form.answers"
+                                :errors="form.errors"
+                                error-prefix="answers."
+                                :disabled-names="disabledStudentFieldNames"
+                            />
                         </section>
                     </div>
 

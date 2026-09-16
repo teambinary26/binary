@@ -17,9 +17,8 @@ class SettingController extends Controller
 {
     public function edit(): Response
     {
-        $keys = ['agency', 'lgu', 'province', 'address', 'phone', 'email', 'office_hours'];
         $settings = [];
-        foreach ($keys as $key) {
+        foreach (SystemSetting::IDENTITY_KEYS as $key) {
             $settings[$key] = SystemSetting::getValue($key, config('cams.'.$key));
         }
 

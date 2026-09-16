@@ -2,11 +2,12 @@
 import { route } from 'ziggy-js';
 import ApplicantLayout from '@/Layouts/ApplicantLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import Pagination from '@/Components/Pagination.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 
 defineProps({
     applicant: { type: Object, required: true },
-    applications: { type: Array, default: () => [] },
+    applications: { type: Object, required: true },
     counts: { type: Object, required: true },
     requirementTask: { type: Object, default: null },
 });
@@ -20,11 +21,14 @@ defineProps({
         <div v-if="requirementTask" class="panel mb-4">
             <div class="panel-h">Requirements to complete</div>
             <div class="panel-body space-y-3">
-                <p class="text-sm break-words">
+                <p class="mb-3 break-words text-sm">
                     Application <strong>{{ requirementTask.application_no }}</strong> for
                     <strong>{{ requirementTask.program_name }}</strong>
                     <template v-if="requirementTask.needs_revision">
                         needs a replacement for the document{{ requirementTask.revisions.length === 1 ? '' : 's' }} marked for revision.
+                    </template>
+                    <template v-else-if="requirementTask.needs_form">
+                        still needs the program application form completed.
                     </template>
                     <template v-else-if="requirementTask.ready_to_submit">
                         has the required files. Review and submit it to the office.
@@ -47,7 +51,7 @@ defineProps({
                     </li>
                 </ul>
                 <Link class="btn-primary btn-sm w-full text-center sm:w-auto" :href="requirementTask.continue_path">
-                    {{ requirementTask.needs_revision ? 'Replace documents' : (requirementTask.ready_to_submit ? 'Review and submit' : 'Upload requirements') }}
+                    {{ requirementTask.needs_revision ? 'Replace documents' : (requirementTask.needs_form ? 'Complete application form' : (requirementTask.ready_to_submit ? 'Review and submit' : 'Upload requirements')) }}
                 </Link>
             </div>
         </div>
@@ -103,7 +107,7 @@ defineProps({
 
             <div class="panel order-1 lg:order-2 lg:col-span-2">
                 <div class="panel-h">Assistance history</div>
-                <div v-if="applications.length" class="overflow-x-auto">
+                <div v-if="applications.data.length" class="overflow-x-auto">
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -115,7 +119,7 @@ defineProps({
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="application in applications" :key="application.id">
+                            <tr v-for="application in applications.data" :key="application.id">
                                 <td data-label="No.">{{ application.application_no }}</td>
                                 <td data-label="Program">{{ application.program?.name }}</td>
                                 <td data-label="Date">{{ application.submitted_at }}</td>
@@ -127,6 +131,7 @@ defineProps({
                         </tbody>
                     </table>
                 </div>
+                <div v-if="applications.data.length" class="px-4 pb-4"><Pagination :paginator="applications" /></div>
                 <p v-else class="px-4 py-3 text-sm text-gov-muted">
                     No applications yet.
                     <Link :href="route('applicant.programs.index')">View available programs</Link>.

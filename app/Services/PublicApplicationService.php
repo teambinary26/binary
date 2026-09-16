@@ -77,11 +77,7 @@ class PublicApplicationService
 
             if ($applicant->user) {
                 $this->applications->confirmEligibility($application, $applicant->user);
-                $this->applications->saveAnswers($application, [
-                    'school_name' => $data['school_name'] ?? null,
-                    'course_or_program' => $data['course_or_program'] ?? null,
-                    'year_level' => $data['year_level'] ?? null,
-                ], $applicant->user);
+                $this->applications->saveAnswers($application, $this->programAnswers($data), $applicant->user);
             }
 
             $application->update([
@@ -202,6 +198,23 @@ class PublicApplicationService
                 'is_primary' => true,
             ]
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function programAnswers(array $data): array
+    {
+        $answers = is_array($data['answers'] ?? null) ? $data['answers'] : [];
+
+        foreach (['school_name', 'course_or_program', 'year_level'] as $key) {
+            if (blank($answers[$key] ?? null) && array_key_exists($key, $data)) {
+                $answers[$key] = $data[$key];
+            }
+        }
+
+        return $answers;
     }
 
     private function storeValidId(Application $application, UploadedFile $file): void

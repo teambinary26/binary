@@ -1,9 +1,11 @@
 <script setup>
+import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import ApplicantLayout from '@/Layouts/ApplicantLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import ApplySteps from '@/Components/ApplySteps.vue';
+import ProgramFormFields from '@/Components/ProgramFormFields.vue';
 
 const props = defineProps({
     application: { type: Object, required: true },
@@ -16,6 +18,24 @@ props.fields.forEach((field) => {
     initial[field.name] = props.answers[field.name] ?? '';
 });
 const form = useForm(initial);
+const stepCount = computed(() => (props.fields.length ? 3 : 2));
+const isStudent = computed(() => props.application.applicant_detail?.beneficiary_type !== 'non_student');
+const disabledStudentFieldNames = computed(() => (isStudent.value ? [] : [
+    'school_name',
+    'course_or_program',
+    'year_level',
+    'education_level',
+    'student_id_no',
+    'student_number',
+    'student_id',
+    'grade_level',
+    'tuition_amount',
+    'term',
+    'supplies_needed',
+    'school_location',
+    'usual_transport',
+    'estimated_daily_fare',
+]));
 
 const submit = () => form.post(route('applicant.apply.form.store', props.application.id));
 </script>
@@ -23,38 +43,13 @@ const submit = () => form.post(route('applicant.apply.form.store', props.applica
 <template>
     <ApplicantLayout>
         <Head title="Application Form" />
-        <PageHeader :title="application.program?.name" kicker="Step 2 of 4 — Application form" :document-no="application.application_no" />
-        <ApplySteps :application-id="application.id" />
+        <PageHeader :title="application.program?.name" :kicker="`Step 1 of ${stepCount} — Application form`" :document-no="application.application_no" />
+        <ApplySteps :application="application" />
         <form class="panel" @submit.prevent="submit">
             <div class="panel-h">Program-specific information</div>
-            <div class="grid gap-4 p-3 md:grid-cols-2 sm:p-4">
-                <div v-for="field in fields" :key="field.name" :class="{ 'md:col-span-2': field.type === 'textarea' }">
-                    <label :for="`field_${field.name}`">{{ field.label }} <template v-if="field.is_required">*</template></label>
-                    <textarea
-                        v-if="field.type === 'textarea'"
-                        :id="`field_${field.name}`"
-                        v-model="form[field.name]"
-                        rows="4"
-                        :required="field.is_required"
-                    />
-                    <select
-                        v-else-if="field.type === 'select'"
-                        :id="`field_${field.name}`"
-                        v-model="form[field.name]"
-                        :required="field.is_required"
-                    >
-                        <option value="">Select</option>
-                        <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
-                    </select>
-                    <input
-                        v-else
-                        :id="`field_${field.name}`"
-                        v-model="form[field.name]"
-                        :type="field.type"
-                        :required="field.is_required"
-                    >
-                    <p v-if="field.help_text" class="mt-1 text-xs text-gov-muted">{{ field.help_text }}</p>
-                </div>
+            <div class="p-3 sm:p-4">
+                <p class="mb-4 text-sm text-gov-muted">Answer the questions set for this program. Your answers appear in review, staff evaluation, and document matching.</p>
+                <ProgramFormFields :fields="fields" :model="form" :errors="form.errors" :disabled-names="disabledStudentFieldNames" />
             </div>
             <div class="border-t border-gov-border p-4">
                 <button class="btn-primary w-full sm:w-auto" type="submit" :disabled="form.processing">Save and continue</button>

@@ -36,12 +36,12 @@ class ProgramController extends Controller
                     ->orWhere('code', 'like', $search);
             }))
             ->orderBy('sort_order')
-            ->get();
+            ->paginate(12);
 
         $categories = ProgramCategory::query()->where('is_active', true)->orderBy('sort_order')->get();
 
         return Inertia::render('Public/Programs/Index', [
-            'programs' => $programs->map(fn ($p) => CamData::program($p))->values(),
+            'programs' => CamData::paginator($programs, fn ($p) => CamData::program($p)),
             'categories' => $categories->map(fn ($c) => [
                 'id' => $c->id,
                 'name' => $c->name,

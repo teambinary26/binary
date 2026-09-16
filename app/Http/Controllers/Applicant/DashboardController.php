@@ -14,14 +14,10 @@ class DashboardController extends Controller
     public function __invoke(Request $request): Response
     {
         $applicant = $request->user()->applicant()->with(['profile', 'primaryAddress'])->first();
-        $applications = $applicant->applications()
-            ->with(['program.category', 'program.requirements', 'documents.verification'])
-            ->latest()
-            ->get();
 
         $counts = [
-            'total' => $applications->count(),
-            'pending' => $applications->whereIn('status', [
+            'total' => $applicant->applications()->count(),
+            'pending' => $applicant->applications()->whereIn('status', [
                 ApplicationStatus::Accepted,
                 ApplicationStatus::Submitted,
                 ApplicationStatus::UnderVerification,
@@ -30,24 +26,41 @@ class DashboardController extends Controller
                 ApplicationStatus::Incomplete,
                 ApplicationStatus::ForRevision,
             ])->count(),
-            'approved' => $applications->whereIn('status', [
+            'approved' => $applicant->applications()->whereIn('status', [
                 ApplicationStatus::Approved,
                 ApplicationStatus::ScheduledForRelease,
             ])->count(),
-            'completed' => $applications->whereIn('status', [
+            'completed' => $applicant->applications()->whereIn('status', [
                 ApplicationStatus::Released,
                 ApplicationStatus::Completed,
             ])->count(),
-            'rejected' => $applications->where('status', ApplicationStatus::Rejected)->count(),
+            'rejected' => $applicant->applications()->where('status', ApplicationStatus::Rejected)->count(),
         ];
 
-        $current = $applications->first(fn ($application) => $application->canBeEditedByApplicant());
+        $applications = $applicant->applications()
+            ->with(['program.category', 'program.requirements', 'program.formFields', 'documents.verification', 'answers'])
+            ->latest()
+            ->paginate(10);
+
+        $current = $applicant->applications()
+            ->with(['program.category', 'program.requirements', 'program.formFields', 'documents.verification', 'answers'])
+            ->whereIn('status', [
+                ApplicationStatus::Draft,
+                ApplicationStatus::Accepted,
+                ApplicationStatus::ForRevision,
+                ApplicationStatus::Incomplete,
+                ApplicationStatus::UnderVerification,
+            ])
+            ->latest()
+            ->get()
+            ->first(fn ($application) => $application->canBeEditedByApplicant());
         $missing = $current ? $current->missingRequiredRequirements() : collect();
         $revisions = $current ? $current->documentsNeedingAction() : collect();
+        $needsForm = $current ? $current->needsFormStep() : false;
 
         return Inertia::render('Applicant/Dashboard', [
             'applicant' => CamData::applicant($applicant),
-            'applications' => $applications->map(fn ($a) => CamData::applicationRow($a))->values(),
+            'applications' => CamData::paginator($applications, fn ($a) => CamData::applicationRow($a)),
             'counts' => $counts,
             'requirementTask' => $current ? [
                 'id' => $current->id,
@@ -65,8 +78,9 @@ class DashboardController extends Controller
                     'description' => $document->verification?->remarks,
                     'status_label' => $document->verification?->status->label(),
                 ])->values(),
-                'ready_to_submit' => $missing->isEmpty() && $revisions->isEmpty(),
+                'ready_to_submit' => ! $needsForm && $missing->isEmpty() && $revisions->isEmpty(),
                 'needs_revision' => $revisions->isNotEmpty(),
+                'needs_form' => $needsForm,
             ] : null,
         ]);
     }

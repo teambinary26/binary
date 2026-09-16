@@ -1,4 +1,5 @@
 <script setup>
+import { computed, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import ApplicantLayout from '@/Layouts/ApplicantLayout.vue';
@@ -22,6 +23,16 @@ const form = useForm({
     school_name: props.applicant.school_name || '',
     course_or_program: props.applicant.course_or_program || '',
     year_level: props.applicant.year_level || '',
+});
+
+const isStudent = computed(() => form.beneficiary_type === 'student');
+
+watch(() => form.beneficiary_type, (type) => {
+    if (type === 'non_student') {
+        form.school_name = '';
+        form.course_or_program = '';
+        form.year_level = '';
+    }
 });
 
 const submit = () => form.put(route('applicant.profile.update'));
@@ -59,9 +70,9 @@ const submit = () => form.put(route('applicant.profile.update'));
                 </div>
                 <div><label>Municipality / City</label><input v-model="form.municipality" required></div>
                 <div><label>Province</label><input v-model="form.province" required></div>
-                <div><label>School (students)</label><input v-model="form.school_name"></div>
-                <div><label>Course / program</label><input v-model="form.course_or_program"></div>
-                <div><label>Year / grade level</label><input v-model="form.year_level"></div>
+                <div><label>School (students)</label><input v-model="form.school_name" :disabled="! isStudent"></div>
+                <div><label>Course / program</label><input v-model="form.course_or_program" :disabled="! isStudent"></div>
+                <div><label>Year / grade level</label><input v-model="form.year_level" :disabled="! isStudent"></div>
             </div>
             <div class="border-t border-gov-border p-4"><button class="btn-primary w-full sm:w-auto" type="submit" :disabled="form.processing">Save profile</button></div>
         </form>

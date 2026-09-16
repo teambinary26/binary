@@ -35,6 +35,6 @@ const markRead = (id) => {
             </form>
             <p v-if="!notifications.data.length" class="p-4 text-sm text-gov-muted">No notifications.</p>
         </div>
-        <Pagination :links="notifications.links" />
+        <Pagination :paginator="notifications" />
     </ApplicantLayout>
 </template>

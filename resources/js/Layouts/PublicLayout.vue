@@ -23,8 +23,8 @@ const clock = computed(() => page.props.clock);
         </main>
 
         <footer class="mt-8 border-t-4 border-gov-blue bg-gov-dark text-white md:mt-10">
-            <div class="mx-auto grid max-w-7xl gap-8 px-4 py-8 md:grid-cols-4 md:py-10">
-                <div class="md:col-span-2">
+            <div class="mx-auto grid max-w-7xl gap-8 px-4 py-8 md:grid-cols-3 md:py-10">
+                <div>
                     <div class="flex items-start gap-3">
                         <Seal class="h-14 w-14 shrink-0 md:h-16 md:w-16" />
                         <div class="min-w-0">
@@ -33,16 +33,40 @@ const clock = computed(() => page.props.clock);
                             <p class="text-sm text-[#cfe3f8]">{{ gov.lgu }}, {{ gov.province }}</p>
                         </div>
                     </div>
-                    <p class="mt-4 max-w-xl text-sm text-[#cfe3f8]">This is an official information system of the Municipal Government of Nabua, Camarines Sur. All cash assistance applications are processed according to established guidelines, documentary requirements, and audit controls.</p>
+                    <p class="mt-4 max-w-xl text-sm text-[#cfe3f8]">This is an official information system of {{ gov.lgu }}, {{ gov.province }}. All cash assistance applications are processed according to established guidelines, documentary requirements, and audit controls.</p>
                 </div>
                 <div>
                     <h2 class="text-sm font-bold uppercase tracking-wide">Office</h2>
-                    <ul class="mt-3 space-y-1 break-words text-sm text-[#cfe3f8]">
-                        <li>{{ gov.address }}</li>
-                        <li>Tel. {{ gov.phone }}</li>
-                        <li>{{ gov.email }}</li>
-                        <li>{{ gov.office_hours }}</li>
-                    </ul>
+                    <dl class="mt-3 space-y-2 break-words text-sm text-[#cfe3f8]">
+                        <div>
+                            <dt class="text-[11px] uppercase tracking-wide text-[#9ec2ea]">Agency</dt>
+                            <dd>{{ gov.agency }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] uppercase tracking-wide text-[#9ec2ea]">LGU</dt>
+                            <dd>{{ gov.lgu }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] uppercase tracking-wide text-[#9ec2ea]">Province</dt>
+                            <dd>{{ gov.province }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] uppercase tracking-wide text-[#9ec2ea]">Address</dt>
+                            <dd>{{ gov.address }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] uppercase tracking-wide text-[#9ec2ea]">Phone</dt>
+                            <dd>{{ gov.phone }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] uppercase tracking-wide text-[#9ec2ea]">Email</dt>
+                            <dd>{{ gov.email }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] uppercase tracking-wide text-[#9ec2ea]">Office hours</dt>
+                            <dd>{{ gov.office_hours }}</dd>
+                        </div>
+                    </dl>
                 </div>
                 <div>
                     <h2 class="text-sm font-bold uppercase tracking-wide">Transparency</h2>

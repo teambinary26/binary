@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Applicant;
 
+use App\Enums\BeneficiaryType;
 use App\Http\Controllers\Controller;
 use App\Models\AssistanceProgram;
 use App\Support\CamData;
@@ -19,14 +20,15 @@ class ProgramController extends Controller
 
         $programs = AssistanceProgram::query()
             ->with('category')
+            ->where(function ($query) use ($type) {
+                $query->where('beneficiary_type', BeneficiaryType::Both)
+                    ->orWhere('beneficiary_type', $type);
+            })
             ->orderBy('sort_order')
-            ->get()
-            ->filter(fn (AssistanceProgram $program) => $program->acceptsBeneficiary($type))
-            ->map(fn ($program) => CamData::program($program))
-            ->values();
+            ->paginate(12);
 
         return Inertia::render('Applicant/Programs', [
-            'programs' => $programs,
+            'programs' => CamData::paginator($programs, fn ($program) => CamData::program($program)),
             'currentApplication' => $current ? [
                 'id' => $current->id,
                 'program_id' => $current->assistance_program_id,

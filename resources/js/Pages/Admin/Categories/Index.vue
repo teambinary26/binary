@@ -3,9 +3,10 @@ import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 defineProps({
-    categories: { type: Array, default: () => [] },
+    categories: { type: Object, required: true },
 });
 
 const form = useForm({
@@ -39,7 +40,7 @@ const submit = () => form.post(route('admin.categories.store'), {
         <table class="data-table">
             <thead><tr><th>Name</th><th>Group</th><th>Programs</th><th>Status</th></tr></thead>
             <tbody>
-                <tr v-for="category in categories" :key="category.id">
+                <tr v-for="category in categories.data" :key="category.id">
                     <td data-label="Name">{{ category.name }}</td>
                     <td data-label="Group">{{ category.group_label }}</td>
                     <td data-label="Programs">{{ category.programs_count }}</td>
@@ -47,5 +48,6 @@ const submit = () => form.post(route('admin.categories.store'), {
                 </tr>
             </tbody>
         </table>
+        <Pagination :paginator="categories" />
     </AdminLayout>
 </template>

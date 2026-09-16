@@ -38,6 +38,8 @@ const formatBytes = (bytes) => {
 
 const requirements = computed(() => props.application.program_detail?.requirements ?? []);
 const requiredList = computed(() => requirements.value.filter((item) => item.is_required));
+const hasFormFields = computed(() => (props.application.program_detail?.form_fields || []).length > 0);
+const documentsKicker = computed(() => hasFormFields.value ? 'Step 2 — Requirements' : 'Step 1 — Requirements');
 const uploadedRequired = computed(() => requiredList.value.filter((item) => isReady(item.id)).length);
 const requiredComplete = computed(() => requiredList.value.every((item) => isReady(item.id)));
 const optionalList = computed(() => requirements.value.filter((item) => ! item.is_required));
@@ -179,8 +181,8 @@ const jumpTo = (requirementId) => {
 <template>
     <ApplicantLayout>
         <Head title="Upload Requirements" />
-        <PageHeader :title="application.program?.name" kicker="Step 3 — Requirements" :document-no="application.application_no" />
-        <ApplySteps :application-id="application.id" />
+        <PageHeader :title="application.program?.name" :kicker="documentsKicker" :document-no="application.application_no" />
+        <ApplySteps :application="application" />
 
         <div class="panel mb-4">
             <div class="flex flex-wrap items-center justify-between gap-3 bg-gov-blue px-3 py-3 text-white sm:px-4">

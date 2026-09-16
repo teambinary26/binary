@@ -3,9 +3,10 @@ import { computed } from 'vue';
 import { route } from 'ziggy-js';
 import ApplicantLayout from '@/Layouts/ApplicantLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
-    programs: { type: Array, default: () => [] },
+    programs: { type: Object, required: true },
     currentApplication: { type: Object, default: null },
 });
 
@@ -29,7 +30,7 @@ const currentHref = computed(() => {
             Other programs are disabled until that application is completed, rejected, or cancelled.
         </p>
         <div class="grid gap-4">
-            <article v-for="program in programs" :key="program.id" class="panel overflow-hidden" :class="{ 'opacity-60': hasCurrent && ! isCurrent(program) }">
+            <article v-for="program in programs.data" :key="program.id" class="panel overflow-hidden" :class="{ 'opacity-60': hasCurrent && ! isCurrent(program) }">
                 <div class="panel-h flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <span class="min-w-0 break-words">{{ program.name }}</span>
                     <span class="shrink-0 text-xs font-normal normal-case">{{ program.amount_display }}</span>
@@ -59,5 +60,7 @@ const currentHref = computed(() => {
                 </div>
             </article>
         </div>
+        <p v-if="!programs.data.length" class="mt-4 panel px-4 py-6 text-sm text-gov-muted">No programs are available for your beneficiary type.</p>
+        <Pagination :paginator="programs" />
     </ApplicantLayout>
 </template>

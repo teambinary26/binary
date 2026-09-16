@@ -260,7 +260,7 @@ const toneClass = (tone) => ({
                 </tr>
             </tbody>
         </table>
-        <Pagination :links="applications.links" />
+        <Pagination :paginator="applications" />
 
         <ConfirmModal
             :show="!!pendingDelete"

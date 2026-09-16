@@ -29,16 +29,16 @@ const form = useForm({
 
 const submit = () => form.get(route('admin.reports.applications'), { preserveState: true });
 
-const csvHref = computed(() => {
+const exportHref = (format) => {
     const url = new URL(route('admin.reports.applications'), window.location.origin);
     Object.entries(form.data()).forEach(([key, value]) => {
         if (value) {
             url.searchParams.set(key, value);
         }
     });
-    url.searchParams.set('export', 'csv');
+    url.searchParams.set('export', format);
     return url.pathname + url.search;
-});
+};
 </script>
 
 <template>
@@ -46,9 +46,8 @@ const csvHref = computed(() => {
         <Head title="Application Report" />
         <PageHeader title="Application Report" kicker="Official statistical listing">
             <template #actions>
-                <button class="btn-ghost btn-sm no-print" type="button" @click="window.print()">Print</button>
-                <a class="btn-secondary btn-sm no-print" :href="csvHref">Export CSV / Excel</a>
-                <button class="btn-secondary btn-sm no-print" type="button" @click="window.print()">Export PDF</button>
+                <a class="btn-secondary btn-sm" :href="exportHref('excel')">Export Excel</a>
+                <a class="btn-secondary btn-sm" :href="exportHref('pdf')">Export PDF</a>
             </template>
         </PageHeader>
         <form class="panel mb-4 no-print" @submit.prevent="submit">
@@ -102,6 +101,6 @@ const csvHref = computed(() => {
                 </tr>
             </tbody>
         </table>
-        <div class="no-print"><Pagination :links="applications.links" /></div>
+        <div class="no-print"><Pagination :paginator="applications" /></div>
     </AdminLayout>
 </template>

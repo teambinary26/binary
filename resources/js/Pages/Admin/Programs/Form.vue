@@ -155,6 +155,7 @@ const submit = () => {
             <div class="panel">
                 <div class="panel-h">Dynamic form fields</div>
                 <div class="space-y-3 p-4">
+                    <p class="text-sm text-gov-muted">These questions appear on the public application form and the applicant portal. Saved answers are shown in review, staff application records, and OCR matching.</p>
                     <div v-for="(row, index) in form.fields" :key="index" class="grid gap-2 md:grid-cols-5">
                         <input v-model="row.label" placeholder="Label">
                         <select v-model="row.type">

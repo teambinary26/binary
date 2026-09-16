@@ -82,7 +82,7 @@
     }
 
     input:disabled, select:disabled, textarea:disabled {
-        @apply bg-gov-off text-gov-muted;
+        @apply cursor-not-allowed bg-gov-off text-gov-muted;
     }
 
     label {

@@ -34,6 +34,6 @@ defineProps({
                 </tr>
             </tbody>
         </table>
-        <Pagination :links="applications.links" />
+        <Pagination :paginator="applications" />
     </AdminLayout>
 </template>

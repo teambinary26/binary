@@ -12,6 +12,7 @@ use App\Models\DocumentSubmission;
 use App\Models\ProgramCategory;
 use App\Models\ReleaseSchedule;
 use App\Models\Role;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -31,9 +32,39 @@ test('public home page is reachable', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Public/Home')
-            ->has('programs')
+            ->has('programs.data')
+            ->has('programs.links')
             ->has('announcements')
             ->has('quick')
+        );
+});
+
+test('public pages share office identity from system settings', function () {
+    $identity = [
+        'agency' => 'Municipal Social Welfare and Development Office',
+        'lgu' => 'Municipality of San Rafael',
+        'province' => 'Province of Nueva Ecija',
+        'address' => 'Municipal Hall Compound, Poblacion, San Rafael, Nueva Ecija',
+        'phone' => '(044) 940-2100',
+        'email' => 'mswdo@sanrafael.gov.ph',
+        'office_hours' => 'Monday to Friday, 8:00 AM - 5:00 PM',
+    ];
+
+    foreach ($identity as $key => $value) {
+        SystemSetting::setValue($key, $value);
+    }
+
+    $this->get('/')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Home')
+            ->where('gov.agency', $identity['agency'])
+            ->where('gov.lgu', $identity['lgu'])
+            ->where('gov.province', $identity['province'])
+            ->where('gov.address', $identity['address'])
+            ->where('gov.phone', $identity['phone'])
+            ->where('gov.email', $identity['email'])
+            ->where('gov.office_hours', $identity['office_hours'])
         );
 });
 
@@ -46,7 +77,8 @@ test('staff dashboard loads for administrator', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Dashboard')
             ->has('stats')
-            ->has('recent')
+            ->has('recent.data')
+            ->has('recent.links')
         );
 });
 
@@ -59,7 +91,8 @@ test('applicant dashboard loads for registered beneficiary', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Applicant/Dashboard')
             ->has('applicant')
-            ->has('applications')
+            ->has('applications.data')
+            ->has('applications.links')
             ->has('counts')
         );
 });
@@ -70,6 +103,49 @@ test('staff cannot open user management', function () {
     $this->actingAs($user)
         ->get('/admin/users')
         ->assertForbidden();
+});
+
+test('admin users page lists accounts in separate role tables', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.users.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Users/Index')
+            ->has('administrators.data')
+            ->has('staff.data')
+            ->has('applicants.data')
+            ->has('roles')
+            ->where('administrators.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['role'] === 'Administrator'))
+            ->where('staff.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['role'] === 'Staff'))
+            ->where('applicants.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['role'] === 'Applicant'))
+        );
+});
+
+test('admin can create a staff user', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $role = Role::query()->where('slug', 'staff')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.users.index'))
+        ->post(route('admin.users.store'), [
+            'name' => 'New Staff Member',
+            'email' => 'new.staff@nabua.gov.ph',
+            'office' => 'MSWDO',
+            'role_id' => $role->id,
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('admin.users.index'))
+        ->assertSessionHas('success');
+
+    $created = User::query()->where('email', 'new.staff@nabua.gov.ph')->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->name)->toBe('New Staff Member')
+        ->and($created->role_id)->toBe($role->id);
 });
 
 test('admin can open application processing and program maintenance', function () {
@@ -379,6 +455,95 @@ test('program directory and how-to-apply pages render', function () {
     $this->get('/application-status')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Public/Status'));
+});
+
+test('listing pages expose paginated records', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $applicant = User::query()->where('email', 'juan.delacruz@email.com')->firstOrFail();
+
+    $this->get('/')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('programs.data')
+            ->has('programs.total')
+            ->has('programs.links')
+        );
+
+    $this->get('/programs')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('programs.data')
+            ->has('programs.total')
+        );
+
+    $this->get('/requirements')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('programs.data')
+            ->has('programs.total')
+        );
+
+    $this->actingAs($admin)->get('/admin/categories')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('categories.data')
+            ->has('categories.links')
+        );
+
+    $this->actingAs($admin)->get('/admin/requirements')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('programs.data')
+            ->has('programOptions')
+        );
+
+    $this->actingAs($admin)->get('/admin/reports/financial')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('byProgram.data')
+            ->has('byProgram.total')
+        );
+
+    $this->actingAs($admin)->get('/admin/reports/beneficiaries')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('byBarangay.data')
+            ->has('byType.data')
+            ->has('bySex.data')
+        );
+
+    $this->actingAs($admin)->get('/admin/releases')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('approved.data')
+            ->has('approved.links')
+            ->has('schedules.data')
+        );
+
+    $this->actingAs($applicant)->get('/applicant/programs')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('programs.data')
+            ->has('programs.total')
+        );
+
+    $firstPage = $this->actingAs($admin)->get('/admin/applications')->assertOk();
+    $firstPage->assertInertia(fn (Assert $page) => $page
+        ->has('applications.data')
+        ->has('applications.total')
+        ->has('applications.current_page')
+    );
+
+    $total = Application::query()->count();
+    if ($total > 15) {
+        $this->actingAs($admin)
+            ->get('/admin/applications?page=2')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('applications.current_page', 2)
+                ->has('applications.data')
+            );
+    }
 });
 
 test('public status inquiry finds an application by number only', function () {

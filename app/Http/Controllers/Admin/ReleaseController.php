@@ -10,16 +10,19 @@ use App\Models\AssistanceRelease;
 use App\Models\ReleaseSchedule;
 use App\Services\ReleaseService;
 use App\Support\CamData;
+use App\Support\ExcelWorkbook;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
 
 class ReleaseController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): InertiaResponse
     {
         $filters = [
             'q' => trim((string) $request->string('q')),
@@ -37,7 +40,7 @@ class ReleaseController extends Controller
                 fn (Builder $query) => $query->where('status', $filters['schedule_status'])
             )
             ->latest('release_date')
-            ->paginate(15)
+            ->paginate(15, ['*'], 'page')
             ->withQueryString();
 
         $approved = Application::query()
@@ -45,7 +48,8 @@ class ReleaseController extends Controller
             ->where('status', ApplicationStatus::Approved->value)
             ->tap(fn (Builder $query) => $this->applyReleaseFilters($query, $filters))
             ->orderBy('application_no')
-            ->get();
+            ->paginate(15, ['*'], 'approved_page')
+            ->withQueryString();
 
         $forRelease = Application::query()
             ->with(['applicant', 'program', 'latestSchedule'])
@@ -56,7 +60,7 @@ class ReleaseController extends Controller
 
         return Inertia::render('Admin/Releases/Index', [
             'schedules' => CamData::paginator($schedules, fn ($s) => CamData::schedule($s)),
-            'approved' => $approved->map(fn ($a) => CamData::applicationRow($a))->values(),
+            'approved' => CamData::paginator($approved, fn ($a) => CamData::applicationRow($a)),
             'forRelease' => $forRelease->map(fn ($a) => CamData::applicationRow($a))->values(),
             'programs' => AssistanceProgram::query()->orderBy('name')->get(['id', 'name']),
             'filters' => $filters,
@@ -64,15 +68,27 @@ class ReleaseController extends Controller
         ]);
     }
 
-    public function released(): Response
+    public function released(Request $request): InertiaResponse|Response
     {
-        $releases = AssistanceRelease::query()
-            ->with(['application.applicant', 'application.program', 'officer'])
-            ->latest('released_at')
-            ->paginate(15);
+        $filters = $this->releasedFilters($request);
+        $query = $this->releasedQuery($filters);
+
+        if ($request->input('export') === 'excel') {
+            return $this->exportReleasedExcel($query->get());
+        }
+
+        if ($request->input('export') === 'pdf') {
+            return $this->exportReleasedPdf($query->get(), $filters);
+        }
+
+        $releases = $query->paginate(15)->withQueryString();
 
         return Inertia::render('Admin/Releases/Released', [
             'releases' => CamData::paginator($releases, fn ($r) => CamData::release($r)),
+            'programs' => AssistanceProgram::query()->orderBy('name')->get(['id', 'name']),
+            'barangays' => config('cams.barangays'),
+            'filters' => $filters,
+            'generated_at' => gov_datetime(now()),
         ]);
     }
 
@@ -163,22 +179,37 @@ class ReleaseController extends Controller
         return back()->with('success', 'Assistance release recorded.');
     }
 
-    public function verifyForm(): Response
+    public function verifyForm(): InertiaResponse
     {
-        return Inertia::render('Admin/Releases/Verify', ['result' => null]);
+        return Inertia::render('Admin/Releases/Verify', [
+            'result' => null,
+            'filters' => [
+                'method' => 'application_no',
+                'lookup' => '',
+            ],
+        ]);
     }
 
-    public function verify(Request $request, ReleaseService $releases): Response
+    public function verify(Request $request, ReleaseService $releases): InertiaResponse
     {
         $data = $request->validate([
             'lookup' => ['required', 'string'],
             'method' => ['required', 'in:application_no,reference_no,qr'],
         ]);
 
-        $raw = $releases->verifyClaim($data['lookup'], $request->user(), $data['method']);
+        $lookup = trim($data['lookup']);
+        $raw = $releases->verifyClaim($lookup, $request->user(), $data['method']);
         $release = $raw['release'] ?? null;
 
+        if ($release) {
+            $release->loadMissing(['application.applicant', 'application.program', 'officer']);
+        }
+
         return Inertia::render('Admin/Releases/Verify', [
+            'filters' => [
+                'method' => $data['method'],
+                'lookup' => $lookup,
+            ],
             'result' => [
                 'valid' => $raw['valid'],
                 'result' => $raw['result'],
@@ -207,5 +238,102 @@ class ReleaseController extends Controller
                         ->orWhereHas('applicant', fn (Builder $applicant) => $applicant->where('full_name', 'like', $search));
                 });
             });
+    }
+
+    /**
+     * @return array{q: string, program: int|string, date_from: string, date_to: string, barangay: string}
+     */
+    private function releasedFilters(Request $request): array
+    {
+        return [
+            'q' => trim((string) $request->string('q')),
+            'program' => $request->integer('program') ?: '',
+            'date_from' => trim((string) $request->string('date_from')),
+            'date_to' => trim((string) $request->string('date_to')),
+            'barangay' => trim((string) $request->string('barangay')),
+        ];
+    }
+
+    /**
+     * @param  array{q: string, program: int|string, date_from: string, date_to: string, barangay: string}  $filters
+     */
+    private function releasedQuery(array $filters): Builder
+    {
+        return AssistanceRelease::query()
+            ->with(['application.applicant.primaryAddress', 'application.program', 'officer'])
+            ->when($filters['q'] !== '', function (Builder $query) use ($filters) {
+                $search = '%'.$filters['q'].'%';
+                $query->where(function (Builder $inner) use ($search) {
+                    $inner->where('reference_no', 'like', $search)
+                        ->orWhere('verification_code', 'like', $search)
+                        ->orWhereHas('application', function (Builder $application) use ($search) {
+                            $application->where('application_no', 'like', $search)
+                                ->orWhereHas('applicant', fn (Builder $applicant) => $applicant->where('full_name', 'like', $search));
+                        });
+                });
+            })
+            ->when($filters['program'] !== '' && $filters['program'] !== null, function (Builder $query) use ($filters) {
+                $query->whereHas('application', fn (Builder $application) => $application->where('assistance_program_id', $filters['program']));
+            })
+            ->when($filters['date_from'] !== '', fn (Builder $query) => $query->whereDate('released_at', '>=', $filters['date_from']))
+            ->when($filters['date_to'] !== '', fn (Builder $query) => $query->whereDate('released_at', '<=', $filters['date_to']))
+            ->when($filters['barangay'] !== '', function (Builder $query) use ($filters) {
+                $query->whereHas(
+                    'application.applicant.primaryAddress',
+                    fn (Builder $address) => $address->where('barangay', $filters['barangay'])
+                );
+            })
+            ->latest('released_at');
+    }
+
+    private function exportReleasedExcel($releases): Response
+    {
+        $rows = $releases->map(fn (AssistanceRelease $release) => [
+            $release->reference_no,
+            $release->application?->application_no,
+            $release->application?->applicant?->full_name,
+            $release->application?->program?->name,
+            (float) $release->amount,
+            gov_datetime($release->released_at),
+            $release->officer?->name,
+            $release->verification_code,
+        ])->all();
+
+        return ExcelWorkbook::download('released-assistance.xls', [
+            'Reference no.',
+            'Application',
+            'Applicant',
+            'Program',
+            'Amount',
+            'Released',
+            'Officer',
+            'Verification code',
+        ], $rows, 'Released Assistance');
+    }
+
+    private function exportReleasedPdf($releases, array $filters): Response
+    {
+        $summary = collect([
+            $filters['q'] !== '' ? 'Search: '.$filters['q'] : null,
+            $filters['program'] !== '' ? 'Program ID: '.$filters['program'] : null,
+            $filters['date_from'] !== '' ? 'From '.$filters['date_from'] : null,
+            $filters['date_to'] !== '' ? 'To '.$filters['date_to'] : null,
+            $filters['barangay'] !== '' ? 'Barangay '.$filters['barangay'] : null,
+        ])->filter()->implode(' · ');
+
+        $programName = $filters['program'] !== ''
+            ? AssistanceProgram::query()->whereKey($filters['program'])->value('name')
+            : null;
+        if ($programName) {
+            $summary = str_replace('Program ID: '.$filters['program'], 'Program: '.$programName, $summary);
+        }
+
+        return Pdf::loadView('exports.released-assistance', [
+            'title' => 'Disbursement Register — Released Assistance',
+            'releases' => $releases,
+            'total' => $releases->sum('amount'),
+            'generated_at' => gov_datetime(now()),
+            'filter_summary' => $summary,
+        ])->setPaper('a4', 'landscape')->download('released-assistance.pdf');
     }
 }

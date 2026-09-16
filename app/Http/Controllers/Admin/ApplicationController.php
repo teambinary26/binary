@@ -155,7 +155,7 @@ class ApplicationController extends Controller
 
         $application->load([
             'applicant.profile', 'applicant.primaryAddress', 'applicant.user',
-            'program.category', 'program.requirements', 'program.eligibilityRules',
+            'program.category', 'program.requirements', 'program.eligibilityRules', 'program.formFields',
             'answers', 'documents.verification.verifier', 'documents.ocrResult.fields', 'statusHistory.user',
             'evaluations.evaluator', 'approvals.officer', 'assignedStaff',
             'releaseSchedules.scheduler', 'releases.officer', 'latestEvaluation.evaluator',

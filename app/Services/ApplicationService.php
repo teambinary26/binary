@@ -234,6 +234,7 @@ class ApplicationService
 
     public function submit(Application $application, User $user): void
     {
+        $this->assertRequiredFormAnswers($application);
         $this->assertRequiredDocuments($application);
 
         $from = $application->status;
@@ -377,6 +378,19 @@ class ApplicationService
             'remarks' => $remarks,
             'created_at' => now(),
         ]);
+    }
+
+    private function assertRequiredFormAnswers(Application $application): void
+    {
+        $missing = $application->missingRequiredFormAnswers()
+            ->map(fn ($field) => $field->label)
+            ->all();
+
+        if ($missing) {
+            throw ValidationException::withMessages([
+                'form' => 'Please complete the application form: '.implode(', ', $missing).'.',
+            ]);
+        }
     }
 
     private function assertRequiredDocuments(Application $application): void

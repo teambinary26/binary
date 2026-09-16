@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AssistanceProgram;
 use App\Services\PublicApplicationService;
 use App\Support\CamData;
+use App\Support\ProgramFormFieldRules;
 use App\Support\TurnstileVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -100,7 +101,9 @@ class ApplyController extends Controller
 
     public function store(Request $request, AssistanceProgram $program, PublicApplicationService $apply): RedirectResponse
     {
-        $data = $request->validate([
+        $program->loadMissing('formFields');
+
+        $data = $request->validate(array_merge([
             'full_name' => ['required', 'string', 'max:150'],
             'date_of_birth' => ['required', 'date', 'before:today'],
             'sex' => ['required', 'in:male,female'],
@@ -118,15 +121,15 @@ class ApplyController extends Controller
             'pwd_type' => ['nullable', 'required_if:is_pwd,1,true', 'in:'.implode(',', array_keys(config('cams.pwd_types')))],
             'pwd_type_detail' => ['nullable', 'required_if:pwd_type,other', 'string', 'max:150'],
             'beneficiary_type' => ['required', 'in:student,non_student'],
-            'school_name' => ['required', 'string', 'max:150'],
+            'school_name' => ['nullable', 'required_if:beneficiary_type,student', 'string', 'max:150'],
             'course_or_program' => ['nullable', 'required_if:beneficiary_type,student', 'string', 'max:150'],
             'year_level' => ['nullable', 'required_if:beneficiary_type,student', 'string', 'max:50'],
             'otp' => ['required', 'string', 'size:6'],
             'eligibility_confirmed' => ['accepted'],
             'turnstile_token' => ['nullable', 'string'],
-        ], [
+        ], ProgramFormFieldRules::rules($program, 'answers.', $request->input('beneficiary_type'))), array_merge([
             'eligibility_confirmed.accepted' => 'You must confirm that you meet the eligibility conditions before continuing.',
-        ]);
+        ], ProgramFormFieldRules::messages($program)));
 
         TurnstileVerifier::assertPassed($request, $data['turnstile_token'] ?? null);
 
@@ -136,6 +139,17 @@ class ApplyController extends Controller
             $data['pwd_type_detail'] = null;
         } elseif (($data['pwd_type'] ?? null) !== 'other') {
             $data['pwd_type_detail'] = null;
+        }
+
+        if (($data['beneficiary_type'] ?? null) === 'non_student') {
+            $data['school_name'] = null;
+            $data['course_or_program'] = null;
+            $data['year_level'] = null;
+            if (is_array($data['answers'] ?? null)) {
+                foreach (ProgramFormFieldRules::studentFieldNames() as $fieldName) {
+                    $data['answers'][$fieldName] = null;
+                }
+            }
         }
 
         $application = $apply->submit($program, $data);

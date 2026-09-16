@@ -386,6 +386,8 @@ class CamData
 
     public static function paginator(LengthAwarePaginator $paginator, callable $mapper): array
     {
+        $paginator->withQueryString();
+
         return [
             'data' => $paginator->getCollection()->map($mapper)->values(),
             'links' => $paginator->linkCollection()->map(fn ($l) => [
@@ -399,5 +401,23 @@ class CamData
             'current_page' => $paginator->currentPage(),
             'last_page' => $paginator->lastPage(),
         ];
+    }
+
+    public static function paginateCollection(iterable $items, callable $mapper, int $perPage = 15, string $pageName = 'page'): array
+    {
+        $collection = collect($items)->values();
+        $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+        $paginator = new LengthAwarePaginator(
+            $collection->forPage($page, $perPage)->values(),
+            $collection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'pageName' => $pageName,
+            ]
+        );
+
+        return self::paginator($paginator, $mapper);
     }
 }

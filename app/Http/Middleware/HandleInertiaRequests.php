@@ -59,7 +59,7 @@ class HandleInertiaRequests extends Middleware
                     ] : null,
                 ] : null,
             ],
-            'gov' => config('cams'),
+            'gov' => gov(),
             'turnstile' => [
                 'site_key' => (string) config('services.turnstile.site_key'),
                 'enabled' => ! TurnstileVerifier::canBypass($request),

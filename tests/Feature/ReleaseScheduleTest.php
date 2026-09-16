@@ -24,12 +24,12 @@ test('release schedule page lists approved applicants separately from scheduled 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Releases/Index')
-            ->has('approved')
+            ->has('approved.data')
             ->has('forRelease')
             ->has('programs')
             ->has('filters')
             ->has('schedules.data')
-            ->where('approved', fn ($rows) => collect($rows)->every(fn ($row) => $row['status'] === ApplicationStatus::Approved->value))
+            ->where('approved.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['status'] === ApplicationStatus::Approved->value))
             ->where('forRelease', fn ($rows) => collect($rows)->every(fn ($row) => $row['status'] === ApplicationStatus::ScheduledForRelease->value))
         );
 });
@@ -70,14 +70,14 @@ test('release schedule page can filter approved applicants by program and search
         ->assertInertia(fn (Assert $page) => $page
             ->where('filters.program', $application->assistance_program_id)
             ->where('filters.q', $application->applicant->full_name)
-            ->where('approved', fn ($rows) => collect($rows)->contains('id', $application->id))
+            ->where('approved.data', fn ($rows) => collect($rows)->contains('id', $application->id))
         );
 
     $this->actingAs($admin)
         ->get(route('admin.releases.index', ['q' => 'NO-SUCH-APPLICANT-XYZ']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('approved', [])
+            ->has('approved.data', 0)
         );
 });
 
@@ -303,4 +303,100 @@ test('multiple scheduled releases can be rescheduled together', function () {
     }
 
     Mail::assertSent(ReleaseScheduledMail::class, 2);
+});
+
+test('released assistance page can be filtered by program and search', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $release = AssistanceRelease::query()
+        ->with(['application.applicant', 'application.program'])
+        ->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.releases.released', [
+            'program' => $release->application->assistance_program_id,
+            'q' => $release->application->applicant->full_name,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Releases/Released')
+            ->has('programs')
+            ->has('barangays')
+            ->where('filters.program', $release->application->assistance_program_id)
+            ->where('filters.q', $release->application->applicant->full_name)
+            ->where('releases.data', fn ($rows) => collect($rows)->contains('id', $release->id))
+        );
+
+    $this->actingAs($admin)
+        ->get(route('admin.releases.released', ['q' => 'NO-SUCH-RELEASE-XYZ']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('releases.data', [])
+        );
+});
+
+test('released assistance can be exported to excel and pdf', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $release = AssistanceRelease::query()->firstOrFail();
+
+    $excel = $this->actingAs($admin)->get(route('admin.releases.released', ['export' => 'excel']));
+    $excel->assertOk();
+    expect($excel->getContent())
+        ->toContain($release->reference_no)
+        ->toContain('Applicant');
+
+    $pdf = $this->actingAs($admin)->get(route('admin.releases.released', ['export' => 'pdf']));
+    $pdf->assertOk();
+    expect($pdf->headers->get('content-type'))->toStartWith('application/pdf')
+        ->and($pdf->getContent())->toStartWith('%PDF');
+});
+
+test('claim verification page renders the lookup form', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.releases.verify'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Releases/Verify')
+            ->where('result', null)
+            ->where('filters.method', 'application_no')
+            ->where('filters.lookup', '')
+        );
+});
+
+test('claim verification lookup that does not match shows an invalid result', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->post(route('admin.releases.verify.store'), [
+            'method' => 'application_no',
+            'lookup' => 'CAMS-0000-999999',
+        ])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Releases/Verify')
+            ->where('result.valid', false)
+            ->where('result.result', 'invalid')
+            ->where('result.release', null)
+            ->where('filters.lookup', 'CAMS-0000-999999')
+            ->where('filters.method', 'application_no')
+        );
+});
+
+test('claim verification can find a released record by application number', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $release = AssistanceRelease::query()->with('application')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->post(route('admin.releases.verify.store'), [
+            'method' => 'application_no',
+            'lookup' => $release->application->application_no,
+        ])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Releases/Verify')
+            ->where('result.valid', true)
+            ->where('result.release.reference_no', $release->reference_no)
+            ->where('filters.lookup', $release->application->application_no)
+        );
 });

@@ -106,7 +106,7 @@ const confirmRemove = () => {
                 </tr>
             </tbody>
         </table>
-        <Pagination :links="applicants.links" />
+        <Pagination :paginator="applicants" />
 
         <ConfirmModal
             :show="Boolean(pending)"

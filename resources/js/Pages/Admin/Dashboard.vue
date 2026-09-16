@@ -4,11 +4,12 @@ import Chart from 'chart.js/auto';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import Pagination from '@/Components/Pagination.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 
 const props = defineProps({
     stats: { type: Object, required: true },
-    recent: { type: Array, default: () => [] },
+    recent: { type: Object, required: true },
     chartMonth: { type: Object, required: true },
     chartProgram: { type: Object, required: true },
     chartType: { type: Object, required: true },
@@ -127,7 +128,7 @@ onMounted(() => {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="row in recent" :key="row.id">
+                        <tr v-for="row in recent.data" :key="row.id">
                             <td data-label="No.">{{ row.application_no }}</td>
                             <td data-label="Applicant">{{ row.applicant?.full_name }}</td>
                             <td data-label="Program">{{ row.program?.name }}</td>
@@ -140,6 +141,7 @@ onMounted(() => {
                     </tbody>
                 </table>
             </div>
+            <div class="px-4 pb-4"><Pagination :paginator="recent" /></div>
         </div>
     </AdminLayout>
 </template>

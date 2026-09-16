@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProgramCategory;
+use App\Support\CamData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -14,10 +15,10 @@ class CategoryController extends Controller
 {
     public function index(): Response
     {
-        $categories = ProgramCategory::query()->withCount('programs')->orderBy('sort_order')->get();
+        $categories = ProgramCategory::query()->withCount('programs')->orderBy('sort_order')->paginate(15);
 
         return Inertia::render('Admin/Categories/Index', [
-            'categories' => $categories->map(fn ($c) => [
+            'categories' => CamData::paginator($categories, fn ($c) => [
                 'id' => $c->id,
                 'name' => $c->name,
                 'group' => $c->group,
@@ -25,7 +26,7 @@ class CategoryController extends Controller
                 'programs_count' => $c->programs_count,
                 'is_active' => $c->is_active,
                 'description' => $c->description,
-            ])->values(),
+            ]),
         ]);
     }
 

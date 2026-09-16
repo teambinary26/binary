@@ -27,7 +27,7 @@ defineProps({
                 </div>
             </article>
             <p v-if="!announcements.data.length">No announcements have been published.</p>
-            <Pagination :links="announcements.links" />
+            <Pagination :paginator="announcements" />
         </div>
     </PublicLayout>
 </template>

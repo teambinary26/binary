@@ -27,7 +27,7 @@ defineProps({
                     </tr>
                 </tbody>
             </table>
-            <Pagination :links="applications.links" />
+            <Pagination :paginator="applications" />
         </div>
         <p v-else class="panel px-4 py-6 text-sm text-gov-muted">
             No applications yet.

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -10,7 +10,7 @@ import StatusBadge from '@/Components/StatusBadge.vue';
 
 const props = defineProps({
     schedules: { type: Object, required: true },
-    approved: { type: Array, default: () => [] },
+    approved: { type: Object, required: true },
     forRelease: { type: Array, default: () => [] },
     programs: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({ q: '', program: '', release_date: '', schedule_status: '' }) },
@@ -56,14 +56,15 @@ const reschedule = useForm({
 
 const canRecordSchedule = (row) => row.status === 'scheduled' && row.application?.status === 'scheduled_for_release';
 
-const approvedIds = computed(() => props.approved.map((row) => row.id));
-const selectedApproved = computed(() => props.approved.filter((row) => selectedIds.value.includes(row.id)));
+const approvedRows = computed(() => props.approved.data ?? []);
+const approvedIds = computed(() => approvedRows.value.map((row) => row.id));
+const selectedApproved = computed(() => approvedRows.value.filter((row) => selectedIds.value.includes(row.id)));
 const allSelected = computed(() => approvedIds.value.length > 0 && approvedIds.value.every((id) => selectedIds.value.includes(id)));
 const someSelected = computed(() => selectedApproved.value.length > 0 && ! allSelected.value);
 const selectedScheduleApps = computed(() => {
     const ids = schedule.application_ids.map((id) => Number(id));
 
-    return props.approved.filter((row) => ids.includes(Number(row.id)));
+    return approvedRows.value.filter((row) => ids.includes(Number(row.id)));
 });
 const selectedRecordApp = computed(() => props.forRelease.find((row) => String(row.id) === String(record.application_id)));
 const reschedulableSchedules = computed(() => (props.schedules.data ?? []).filter((row) => canRecordSchedule(row)));
@@ -71,6 +72,10 @@ const reschedulableIds = computed(() => reschedulableSchedules.value.map((row) =
 const selectedSchedules = computed(() => (props.schedules.data ?? []).filter((row) => selectedScheduleIds.value.includes(row.id) && canRecordSchedule(row)));
 const allSchedulesSelected = computed(() => reschedulableIds.value.length > 0 && reschedulableIds.value.every((id) => selectedScheduleIds.value.includes(id)));
 const someSchedulesSelected = computed(() => selectedSchedules.value.length > 0 && ! allSchedulesSelected.value);
+
+watch(approvedIds, (ids) => {
+    selectedIds.value = selectedIds.value.filter((id) => ids.includes(id));
+});
 
 const isSelected = (id) => selectedIds.value.includes(id);
 const isScheduleSelected = (id) => selectedScheduleIds.value.includes(id);
@@ -225,7 +230,7 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
         <Head title="Release Schedule" />
         <PageHeader title="Release Schedule" kicker="Approved assistance for disbursement">
             <template #actions>
-                <button class="btn-primary btn-sm" type="button" :disabled="!approved.length && !selectedApproved.length" @click="openSchedule()">
+                <button class="btn-primary btn-sm" type="button" :disabled="!approvedRows.length && !selectedApproved.length" @click="openSchedule()">
                     {{ selectedApproved.length ? `Schedule selected (${selectedApproved.length})` : 'Schedule a release' }}
                 </button>
                 <button class="btn-success btn-sm" type="button" :disabled="!forRelease.length" @click="openRecord()">
@@ -287,7 +292,7 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                                     type="checkbox"
                                     :checked="allSelected"
                                     :indeterminate="someSelected"
-                                    :disabled="!approved.length"
+                                    :disabled="!approvedRows.length"
                                     @change="toggleAll"
                                 >
                                 <span class="sr-only">Select all</span>
@@ -302,10 +307,10 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-if="!approved.length">
+                    <tr v-if="!approvedRows.length">
                         <td class="px-4 py-6 text-sm text-gov-muted" colspan="7">No approved applicants match the current filter.</td>
                     </tr>
-                    <tr v-for="row in approved" :key="row.id">
+                    <tr v-for="row in approvedRows" :key="row.id">
                         <td data-label="Select">
                             <input type="checkbox" :checked="isSelected(row.id)" @change="toggleRow(row.id)">
                         </td>
@@ -324,6 +329,7 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                     </tr>
                 </tbody>
             </table>
+            <div class="px-4 pb-4"><Pagination :paginator="approved" /></div>
         </div>
 
         <div class="panel mt-4">
@@ -409,7 +415,7 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                     </tr>
                 </tbody>
             </table>
-            <div class="p-4"><Pagination :links="schedules.links" /></div>
+            <div class="p-4"><Pagination :paginator="schedules" /></div>
         </div>
 
         <Modal :show="showSchedule" title="Schedule a release" @close="closeSchedule">
@@ -426,7 +432,7 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                     <label>Approved application</label>
                     <select v-model="schedule.application_id" required>
                         <option value="">Select</option>
-                        <option v-for="row in approved" :key="row.id" :value="row.id">
+                        <option v-for="row in approvedRows" :key="row.id" :value="row.id">
                             {{ row.application_no }} — {{ row.applicant?.full_name }} ({{ row.approved_amount_formatted }})
                         </option>
                     </select>
