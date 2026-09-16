@@ -95,25 +95,56 @@ class ApplicationController extends Controller
         $applicationNo = $application->application_no;
 
         DB::transaction(function () use ($application) {
-            foreach ($application->documents as $document) {
-                DocumentFiles::delete($document->file_path);
-                $document->verification()?->delete();
-                $document->delete();
-            }
-
-            $application->answers()->delete();
-            $application->statusHistory()->delete();
-            $application->evaluations()->delete();
-            $application->approvals()->delete();
-            $application->releaseSchedules()->delete();
-            $application->releases()->delete();
-            $application->delete();
+            $this->deleteApplicationRecord($application);
         });
 
         $audit->log('deleted', 'Deleted application '.$applicationNo, null, null, $request->user());
 
         return redirect()->route('admin.applications.index')
             ->with('success', 'Application '.$applicationNo.' has been deleted.');
+    }
+
+    public function bulkDestroy(Request $request, AuditService $audit): RedirectResponse
+    {
+        abort_unless($request->user()?->isAdmin(), 403);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer', 'distinct', 'exists:applications,id'],
+        ]);
+
+        $applications = Application::query()
+            ->whereIn('id', $data['ids'])
+            ->orderBy('id')
+            ->get();
+
+        foreach ($applications as $application) {
+            $this->authorize('delete', $application);
+        }
+
+        $numbers = $applications->pluck('application_no')->all();
+
+        DB::transaction(function () use ($applications) {
+            foreach ($applications as $application) {
+                $this->deleteApplicationRecord($application);
+            }
+        });
+
+        $count = count($numbers);
+        $audit->log(
+            'deleted',
+            $count === 1
+                ? 'Deleted application '.$numbers[0]
+                : 'Deleted '.$count.' applications: '.implode(', ', $numbers),
+            null,
+            null,
+            $request->user(),
+        );
+
+        return redirect()->route('admin.applications.index')
+            ->with('success', $count === 1
+                ? 'Application '.$numbers[0].' has been deleted.'
+                : $count.' applications have been deleted.');
     }
 
     public function show(Application $application, ApplicationService $applicationService): Response
@@ -382,5 +413,24 @@ class ApplicationController extends Controller
         $approval->rejectApplicant($application, $request->user(), $data['remarks']);
 
         return back()->with('success', 'Application rejected. The applicant has been notified.');
+    }
+
+    private function deleteApplicationRecord(Application $application): void
+    {
+        $application->loadMissing('documents');
+
+        foreach ($application->documents as $document) {
+            DocumentFiles::delete($document->file_path);
+            $document->verification()?->delete();
+            $document->delete();
+        }
+
+        $application->answers()->delete();
+        $application->statusHistory()->delete();
+        $application->evaluations()->delete();
+        $application->approvals()->delete();
+        $application->releaseSchedules()->delete();
+        $application->releases()->delete();
+        $application->delete();
     }
 }

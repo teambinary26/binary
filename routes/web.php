@@ -79,6 +79,8 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(fun
         Route::put('/applications/{application}/assign', [Admin\ApplicationController::class, 'assign'])->name('applications.assign');
     });
 
+    Route::post('/applications/bulk-destroy', [Admin\ApplicationController::class, 'bulkDestroy'])
+        ->middleware('permission:applications.manage')->name('applications.bulk-destroy');
     Route::delete('/applications/{application}', [Admin\ApplicationController::class, 'destroy'])
         ->middleware('permission:applications.manage')->name('applications.destroy');
 

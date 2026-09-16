@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -33,19 +33,75 @@ const filterByStatus = (statusValue) => {
     submit();
 };
 
+const pageIds = computed(() => (props.applications.data ?? []).map((row) => Number(row.id)));
+const selectedIds = ref([]);
+
+watch(pageIds, (ids) => {
+    selectedIds.value = selectedIds.value.filter((id) => ids.includes(id));
+});
+
+const allSelected = computed(() => pageIds.value.length > 0 && pageIds.value.every((id) => selectedIds.value.includes(id)));
+const someSelected = computed(() => selectedIds.value.length > 0 && ! allSelected.value);
+const selectedRows = computed(() => (props.applications.data ?? []).filter((row) => selectedIds.value.includes(Number(row.id))));
+
+const isSelected = (id) => selectedIds.value.includes(Number(id));
+
+const toggleRow = (id) => {
+    const value = Number(id);
+    if (isSelected(value)) {
+        selectedIds.value = selectedIds.value.filter((item) => item !== value);
+        return;
+    }
+
+    selectedIds.value = [...selectedIds.value, value];
+};
+
+const toggleAll = () => {
+    selectedIds.value = allSelected.value ? [] : [...pageIds.value];
+};
+
 const pendingDelete = ref(null);
+const pendingBulk = ref(false);
 const deleting = ref(false);
 
 const requestDelete = (row) => {
+    pendingBulk.value = false;
     pendingDelete.value = row;
+};
+
+const requestBulkDelete = () => {
+    if (! selectedRows.value.length) {
+        return;
+    }
+
+    pendingBulk.value = true;
+    pendingDelete.value = { count: selectedRows.value.length };
 };
 
 const cancelDelete = () => {
     if (deleting.value) return;
     pendingDelete.value = null;
+    pendingBulk.value = false;
 };
 
 const confirmDelete = () => {
+    if (pendingBulk.value) {
+        if (! selectedIds.value.length) return;
+        deleting.value = true;
+        router.post(route('admin.applications.bulk-destroy'), { ids: selectedIds.value }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                selectedIds.value = [];
+            },
+            onFinish: () => {
+                deleting.value = false;
+                pendingDelete.value = null;
+                pendingBulk.value = false;
+            },
+        });
+        return;
+    }
+
     if (! pendingDelete.value) return;
     deleting.value = true;
     router.delete(route('admin.applications.destroy', pendingDelete.value.id), {
@@ -56,6 +112,19 @@ const confirmDelete = () => {
         },
     });
 };
+
+const deleteMessage = computed(() => {
+    if (pendingBulk.value) {
+        const count = pendingDelete.value?.count ?? selectedIds.value.length;
+        return `Delete ${count} selected application${count === 1 ? '' : 's'}? This action cannot be undone.`;
+    }
+
+    if (! pendingDelete.value) {
+        return '';
+    }
+
+    return `Are you sure you want to delete application ${pendingDelete.value.application_no}? This action cannot be undone.`;
+});
 
 const cards = [
     { key: 'total', label: 'Total', tone: 'blue', filter: '' },
@@ -113,9 +182,45 @@ const toneClass = (tone) => ({
                 <div class="flex items-end"><button class="btn-primary w-full" type="submit">Filter</button></div>
             </div>
         </form>
+
+        <div
+            v-if="canDelete"
+            class="mb-3 flex flex-wrap items-center justify-between gap-2 border border-gov-border bg-white px-4 py-3"
+        >
+            <p class="text-sm text-gov-text">
+                <span v-if="selectedIds.length">{{ selectedIds.length }} selected on this page</span>
+                <span v-else>Select applications to delete them together.</span>
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+                <button class="btn-secondary btn-sm" type="button" :disabled="!pageIds.length" @click="toggleAll">
+                    {{ allSelected ? 'Clear selection' : 'Select all' }}
+                </button>
+                <button
+                    class="btn-danger btn-sm"
+                    type="button"
+                    :disabled="!selectedIds.length"
+                    @click="requestBulkDelete"
+                >
+                    Delete selected{{ selectedIds.length ? ` (${selectedIds.length})` : '' }}
+                </button>
+            </div>
+        </div>
+
         <table class="data-table">
             <thead>
                 <tr>
+                    <th v-if="canDelete" class="w-12">
+                        <label class="inline-flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                :checked="allSelected"
+                                :indeterminate="someSelected"
+                                :disabled="!pageIds.length"
+                                @change="toggleAll"
+                            >
+                            <span class="sr-only">Select all on this page</span>
+                        </label>
+                    </th>
                     <th>Application no.</th>
                     <th>Applicant</th>
                     <th>Program</th>
@@ -128,6 +233,9 @@ const toneClass = (tone) => ({
             </thead>
             <tbody>
                 <tr v-for="row in applications.data" :key="row.id">
+                    <td v-if="canDelete" data-label="Select">
+                        <input type="checkbox" :checked="isSelected(row.id)" @change="toggleRow(row.id)">
+                    </td>
                     <td data-label="No.">{{ row.application_no }}</td>
                     <td data-label="Applicant">{{ row.applicant?.full_name }}</td>
                     <td data-label="Program">{{ row.program?.name }}</td>
@@ -148,7 +256,7 @@ const toneClass = (tone) => ({
                     </td>
                 </tr>
                 <tr v-if="!applications.data.length">
-                    <td colspan="8" class="px-4 py-6 text-center text-sm text-gov-muted">No applications match the current filters.</td>
+                    <td :colspan="canDelete ? 9 : 8" class="px-4 py-6 text-center text-sm text-gov-muted">No applications match the current filters.</td>
                 </tr>
             </tbody>
         </table>
@@ -157,8 +265,8 @@ const toneClass = (tone) => ({
         <ConfirmModal
             :show="!!pendingDelete"
             tone="danger"
-            title="Delete application"
-            :message="pendingDelete ? `Are you sure you want to delete application ${pendingDelete.application_no}? This action cannot be undone.` : ''"
+            :title="pendingBulk ? 'Delete selected applications' : 'Delete application'"
+            :message="deleteMessage"
             confirm-label="Yes, delete"
             cancel-label="Cancel"
             :processing="deleting"

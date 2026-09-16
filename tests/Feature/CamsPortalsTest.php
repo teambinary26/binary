@@ -139,6 +139,32 @@ test('admin cannot delete a program that has applications', function () {
     expect(AssistanceProgram::query()->whereKey($program->id)->exists())->toBeTrue();
 });
 
+test('admin can delete selected applications in bulk', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $ids = Application::query()->orderBy('id')->limit(2)->pluck('id');
+
+    expect($ids)->toHaveCount(2);
+
+    $this->actingAs($admin)
+        ->from(route('admin.applications.index'))
+        ->post(route('admin.applications.bulk-destroy'), ['ids' => $ids->all()])
+        ->assertRedirect(route('admin.applications.index'))
+        ->assertSessionHas('success');
+
+    expect(Application::query()->whereIn('id', $ids)->exists())->toBeFalse();
+});
+
+test('staff cannot bulk delete applications', function () {
+    $staff = User::query()->where('email', 'staff@nabua.gov.ph')->firstOrFail();
+    $id = Application::query()->value('id');
+
+    $this->actingAs($staff)
+        ->post(route('admin.applications.bulk-destroy'), ['ids' => [$id]])
+        ->assertForbidden();
+
+    expect(Application::query()->whereKey($id)->exists())->toBeTrue();
+});
+
 test('staff can record a document verification', function () {
     $user = User::query()->where('email', 'staff@nabua.gov.ph')->firstOrFail();
     $document = DocumentSubmission::query()->firstOrFail();
