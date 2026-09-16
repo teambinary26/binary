@@ -7,8 +7,10 @@ use App\Models\Permission;
 use App\Models\SystemNotification;
 use App\Models\WorkflowStaff;
 use App\Support\TurnstileVerifier;
+use Closure;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Inertia\Support\Header;
 use Tighten\Ziggy\Ziggy;
 
 class HandleInertiaRequests extends Middleware
@@ -18,6 +20,30 @@ class HandleInertiaRequests extends Middleware
     public function version(Request $request): ?string
     {
         return parent::version($request);
+    }
+
+    public function handle(Request $request, Closure $next)
+    {
+        if ($this->isBrowserDocumentRequest($request)) {
+            $request->headers->remove(Header::INERTIA);
+            $request->headers->remove(Header::VERSION);
+        }
+
+        $response = parent::handle($request, $next);
+
+        $response->headers->set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Vary', 'X-Inertia, Accept, Accept-Encoding');
+
+        return $response;
+    }
+
+    protected function isBrowserDocumentRequest(Request $request): bool
+    {
+        $dest = strtolower((string) $request->headers->get('Sec-Fetch-Dest', ''));
+        $mode = strtolower((string) $request->headers->get('Sec-Fetch-Mode', ''));
+
+        return $dest === 'document' || $mode === 'navigate';
     }
 
     public function share(Request $request): array

@@ -15,6 +15,7 @@
     @inertiaHead
 </head>
 <body class="min-h-screen bg-gov-off font-sans text-gov-text antialiased">
-    @inertia
+    <script data-page="app" type="application/json">{!! json_encode($page, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!}</script>
+    <div id="app"></div>
 </body>
 </html>
