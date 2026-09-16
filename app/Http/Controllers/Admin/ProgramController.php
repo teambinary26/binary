@@ -75,7 +75,12 @@ class ProgramController extends Controller
 
     public function destroy(AssistanceProgram $program, AuditService $audit): RedirectResponse
     {
+        if ($program->applications()->exists()) {
+            return back()->with('error', 'This program cannot be deleted while application records still exist.');
+        }
+
         $this->authorize('delete', $program);
+
         $name = $program->name;
         $program->delete();
         $audit->log('deleted', 'Deleted assistance program '.$name);

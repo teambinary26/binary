@@ -1,12 +1,15 @@
 <?php
 
+use App\Enums\BeneficiaryType;
 use App\Models\Applicant;
 use App\Models\ApplicantAddress;
 use App\Models\ApplicantProfile;
 use App\Models\Application;
 use App\Models\ApplicationAnswer;
+use App\Models\AssistanceProgram;
 use App\Models\AssistanceRelease;
 use App\Models\DocumentSubmission;
+use App\Models\ProgramCategory;
 use App\Models\ReleaseSchedule;
 use App\Models\Role;
 use App\Models\User;
@@ -87,11 +90,53 @@ test('admin can open application processing and program maintenance', function (
 
     $this->actingAs($user)->get('/admin/programs')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Admin/Programs/Index'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Programs/Index')
+            ->has('programs.data.0.can_delete')
+        );
 
     $this->actingAs($user)->get('/admin/reports/applications')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Admin/Reports/Applications'));
+});
+
+test('admin can delete a program that has no applications', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $category = ProgramCategory::query()->firstOrFail();
+
+    $program = AssistanceProgram::query()->create([
+        'program_category_id' => $category->id,
+        'name' => 'Temporary Test Program',
+        'code' => 'TMP-DEL',
+        'slug' => 'temporary-test-program',
+        'description' => 'Created only to verify deletion.',
+        'eligibility' => 'Test eligibility.',
+        'beneficiary_type' => BeneficiaryType::Both,
+        'amount_type' => 'fixed',
+        'amount' => 1000,
+        'is_open' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->from(route('admin.programs.index'))
+        ->delete(route('admin.programs.destroy', $program))
+        ->assertRedirect(route('admin.programs.index'))
+        ->assertSessionHas('success');
+
+    expect(AssistanceProgram::query()->whereKey($program->id)->exists())->toBeFalse();
+});
+
+test('admin cannot delete a program that has applications', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $program = AssistanceProgram::query()->has('applications')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.programs.index'))
+        ->delete(route('admin.programs.destroy', $program))
+        ->assertRedirect(route('admin.programs.index'))
+        ->assertSessionHas('error');
+
+    expect(AssistanceProgram::query()->whereKey($program->id)->exists())->toBeTrue();
 });
 
 test('staff can record a document verification', function () {

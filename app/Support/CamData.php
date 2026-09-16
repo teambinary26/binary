@@ -38,6 +38,7 @@ class CamData
             'open_until_raw' => $program->open_until?->format('Y-m-d'),
             'slot_limit' => $program->slot_limit,
             'applications_count' => $program->applications_count ?? $program->applications()->count(),
+            'can_delete' => ($program->applications_count ?? $program->applications()->count()) === 0,
             'category' => $program->category ? [
                 'id' => $program->category->id,
                 'name' => $program->category->name,
