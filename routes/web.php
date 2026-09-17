@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Applicant;
+use App\Http\Controllers\Auth\GoogleLoginController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Site\AnnouncementController as PublicAnnouncementController;
@@ -40,6 +41,8 @@ Route::post('/contact', function (Request $request) {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+    Route::get('/login/google', [GoogleLoginController::class, 'redirect'])->name('login.google');
+    Route::get('/login/google/callback', [GoogleLoginController::class, 'callback'])->name('login.google.callback');
     Route::get('/register', [RegisterController::class, 'create'])->name('register');
     Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
 });

@@ -48,4 +48,19 @@ return [
         'timeout' => (int) env('OCRSPACE_TIMEOUT', 60),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => (static function () {
+            $fallback = rtrim((string) env('APP_URL', 'http://localhost'), '/').'/login/google/callback';
+            $redirect = trim((string) env('GOOGLE_REDIRECT_URI', ''));
+
+            if ($redirect === '' || str_contains($redirect, '{APP_URL}') || ! filter_var($redirect, FILTER_VALIDATE_URL)) {
+                return $fallback;
+            }
+
+            return $redirect;
+        })(),
+    ],
+
 ];
