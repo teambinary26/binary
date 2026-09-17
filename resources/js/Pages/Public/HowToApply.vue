@@ -38,8 +38,8 @@ const steps = [
                 </li>
             </ol>
             <div class="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <Link class="btn-primary w-full text-center sm:w-auto" :href="route('register')">Create an applicant account</Link>
-                <Link class="btn-secondary w-full text-center sm:w-auto" :href="route('site.programs.index')">Browse programs</Link>
+                <Link class="btn-primary w-full text-center sm:w-auto" :href="route('site.programs.index')">Browse programs</Link>
+                <Link class="btn-secondary w-full text-center sm:w-auto" :href="route('login')">Sign in</Link>
             </div>
         </div>
     </PublicLayout>

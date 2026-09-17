@@ -67,10 +67,9 @@ watch(() => page.url, () => {
                     <template v-else>
                         <Link
                             :href="route('login')"
-                            class="btn-ghost btn-sm"
-                            :class="{ 'border-gov-blue bg-gov-light': route().current('login') }"
+                            class="btn-primary btn-sm"
+                            :class="{ 'border-gov-navy': route().current('login') }"
                         >Sign in</Link>
-                        <Link :href="route('register')" class="btn-primary btn-sm">Register</Link>
                     </template>
                 </div>
                 <button
@@ -111,8 +110,7 @@ watch(() => page.url, () => {
                     <button class="btn-ghost btn-sm w-full sm:w-auto" type="button" @click="signOut">Sign out</button>
                 </template>
                 <template v-else>
-                    <Link :href="route('login')" class="btn-ghost btn-sm w-full sm:w-auto">Sign in</Link>
-                    <Link :href="route('register')" class="btn-primary btn-sm w-full sm:w-auto">Register</Link>
+                    <Link :href="route('login')" class="btn-primary btn-sm w-full sm:w-auto">Sign in</Link>
                 </template>
             </div>
         </div>

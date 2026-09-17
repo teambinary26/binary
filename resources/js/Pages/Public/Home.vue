@@ -16,7 +16,7 @@ defineProps({
     quick: { type: Array, default: () => [] },
 });
 
-const applyHref = computed(() => (auth.value ? route('applicant.programs.index') : route('register')));
+const applyHref = computed(() => (auth.value ? route('applicant.programs.index') : route('site.programs.index')));
 </script>
 
 <template>

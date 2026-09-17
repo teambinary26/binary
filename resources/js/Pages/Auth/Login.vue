@@ -89,7 +89,7 @@ const submit = () => {
                     </div>
                     <button class="btn-primary w-full" type="submit" :disabled="!canSubmit">Sign in</button>
                 </form>
-                <p class="mt-4 text-sm">No account yet? <Link :href="route('register')">Register as an applicant</Link></p>
+                <p class="mt-4 text-sm">Need help? <Link :href="route('site.how-to-apply')">See how to apply</Link></p>
             </div>
         </div>
     </AuthLayout>
