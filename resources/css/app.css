@@ -285,6 +285,10 @@
         @apply border-gov-gold bg-white/15 font-semibold text-white;
     }
 
+    .sidebar-link-compact {
+        @apply justify-center gap-0 px-2;
+    }
+
     .sidebar-group {
         @apply px-4 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-gov-gold;
     }

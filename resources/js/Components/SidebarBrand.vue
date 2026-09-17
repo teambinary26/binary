@@ -3,6 +3,10 @@ import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import SidenavLogo from '@/Components/SidenavLogo.vue';
 
+defineProps({
+    compact: { type: Boolean, default: false },
+});
+
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
@@ -30,8 +34,8 @@ const portalLabel = computed(() => {
 </script>
 
 <template>
-    <div class="flex flex-col items-center px-4 py-4 text-center">
-        <SidenavLogo class="h-[4.5rem] w-[4.5rem]" />
-        <p class="mt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-white">{{ portalLabel }}</p>
+    <div class="flex flex-col items-center text-center" :class="compact ? 'px-2 py-3' : 'px-4 py-4'">
+        <SidenavLogo :class="compact ? 'h-10 w-10' : 'h-[4.5rem] w-[4.5rem]'" />
+        <p v-if="! compact" class="mt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-white">{{ portalLabel }}</p>
     </div>
 </template>
