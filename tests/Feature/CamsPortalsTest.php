@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Models\WorkflowStaff;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -399,7 +400,42 @@ test('guest visiting the staff dashboard is sent to sign in', function () {
 test('guest sign-in page is reachable', function () {
     $this->get('/login')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Auth/Login'));
+        ->assertInertia(fn (Assert $page) => $page->component('Auth/Login'))
+        ->assertDontSee('Demonstration accounts')
+        ->assertDontSee('Password123!');
+});
+
+test('sign in requires a cloudflare turnstile token', function () {
+    $this->from(route('login'))
+        ->post(route('login.store'), [
+            'email' => 'admin@nabua.gov.ph',
+            'password' => 'Password123!',
+        ])
+        ->assertRedirect(route('login'))
+        ->assertSessionHasErrors('turnstile_token');
+
+    $this->assertGuest();
+});
+
+test('sign in succeeds after cloudflare turnstile verification', function () {
+    config([
+        'services.turnstile.secret_key' => 'test-secret',
+        'services.turnstile.verify_url' => 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    ]);
+    Http::fake([
+        'https://challenges.cloudflare.com/turnstile/v0/siteverify' => Http::response(['success' => true]),
+    ]);
+
+    $this->from(route('login'))
+        ->post(route('login.store'), [
+            'email' => 'admin@nabua.gov.ph',
+            'password' => 'Password123!',
+            'turnstile_token' => 'login-token',
+        ])
+        ->assertRedirect('/admin/dashboard');
+
+    $this->assertAuthenticated();
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'turnstile/v0/siteverify'));
 });
 
 test('applicant visiting the staff dashboard is sent to the applicant portal', function () {

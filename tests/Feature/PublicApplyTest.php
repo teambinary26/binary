@@ -246,6 +246,7 @@ test('pending applicant cannot log in until an admin approves', function () {
         ->post((string) route('login.store'), [
             'email' => 'ana.pending@example.com',
             'password' => 'anything-since-the-real-one-was-never-shared',
+            'turnstile_token' => 'test-token',
         ])
         ->assertRedirect(route('login'))
         ->assertSessionHasErrors('email');

@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\AuditService;
+use App\Support\TurnstileVerifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,12 +21,30 @@ class LoginController extends Controller
 
     public function store(Request $request, AuditService $audit): RedirectResponse
     {
-        $credentials = $request->validate([
+        $rules = [
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+        ];
+
+        if (! TurnstileVerifier::canBypass($request)) {
+            $rules['turnstile_token'] = ['required', 'string'];
+        }
+
+        $credentials = $request->validate($rules, [
+            'turnstile_token.required' => 'Please complete the Cloudflare security check before signing in.',
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! TurnstileVerifier::canBypass($request)
+            && ! TurnstileVerifier::verify($credentials['turnstile_token'] ?? null, $request->ip())) {
+            throw ValidationException::withMessages([
+                'turnstile_token' => 'The security check failed. Please complete it again.',
+            ]);
+        }
+
+        if (! Auth::attempt([
+            'email' => $credentials['email'],
+            'password' => $credentials['password'],
+        ], $request->boolean('remember'))) {
             return back()->withErrors(['email' => 'These credentials do not match our records.'])->onlyInput('email');
         }
 
