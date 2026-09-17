@@ -14,6 +14,7 @@ const { can } = useCan();
 
 const props = defineProps({
     administrators: { type: Object, required: true },
+    sk: { type: Object, required: true },
     staff: { type: Object, required: true },
     applicants: { type: Object, required: true },
     roles: { type: Array, default: () => [] },
@@ -21,6 +22,7 @@ const props = defineProps({
 
 const groups = computed(() => [
     { key: 'administrators', title: 'Administrators', paginator: props.administrators },
+    { key: 'sk', title: 'Sangguniang Kabataan', paginator: props.sk },
     { key: 'staff', title: 'Staff', paginator: props.staff },
     { key: 'applicants', title: 'Applicants', paginator: props.applicants },
 ]);
@@ -34,7 +36,7 @@ const form = useForm({
     email: '',
     employee_no: '',
     office: '',
-    role_id: props.roles[0]?.id || '',
+    role_id: '',
     is_active: true,
     password: '',
     password_confirmation: '',
@@ -45,7 +47,7 @@ const resetForm = () => {
     form.email = '';
     form.employee_no = '';
     form.office = '';
-    form.role_id = props.roles[0]?.id || '';
+    form.role_id = '';
     form.is_active = true;
     form.password = '';
     form.password_confirmation = '';
@@ -110,7 +112,7 @@ const confirmRemove = () => {
 <template>
     <AdminLayout>
         <Head title="Users" />
-        <PageHeader title="System Users" kicker="Staff and applicant accounts">
+        <PageHeader title="System Users" kicker="Administrator, SK, staff, and applicant accounts">
             <template #actions>
                 <button
                     v-if="can('users.manage')"
@@ -118,7 +120,7 @@ const confirmRemove = () => {
                     type="button"
                     @click="openCreate"
                 >
-                    Create staff user
+                    Create user
                 </button>
             </template>
         </PageHeader>
@@ -168,7 +170,7 @@ const confirmRemove = () => {
             <div class="px-4 pb-4"><Pagination :paginator="group.paginator" /></div>
         </section>
 
-        <Modal :show="showCreate" title="Create staff user" wide @close="closeCreate">
+        <Modal :show="showCreate" title="Create user" wide @close="closeCreate">
             <form class="grid gap-4 p-4 md:grid-cols-2" @submit.prevent="submitCreate">
                 <div>
                     <label for="user-name">Name</label>
@@ -190,11 +192,15 @@ const confirmRemove = () => {
                     <input id="user-office" v-model="form.office">
                     <p v-if="form.errors.office" class="field-error">{{ form.errors.office }}</p>
                 </div>
-                <div>
+                <div class="md:col-span-2">
                     <label for="user-role">Role</label>
                     <select id="user-role" v-model="form.role_id" required>
+                        <option disabled value="">Select role</option>
                         <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
                     </select>
+                    <p class="mt-1 text-xs text-gov-muted">
+                        Choose Administrator to create another admin. Sangguniang Kabataan accounts are assigned to document verification.
+                    </p>
                     <p v-if="form.errors.role_id" class="field-error">{{ form.errors.role_id }}</p>
                 </div>
                 <label class="flex items-center gap-2 self-end pb-2 text-sm font-normal normal-case tracking-normal">

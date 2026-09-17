@@ -87,9 +87,14 @@ class User extends Authenticatable
         return $this->hasRole('applicant');
     }
 
+    public function isSk(): bool
+    {
+        return $this->hasRole('sk');
+    }
+
     public function isStaff(): bool
     {
-        return $this->isAdmin() || $this->hasRole('staff');
+        return $this->isAdmin() || $this->hasRole('staff', 'sk');
     }
 
     public function hasRole(string ...$slugs): bool

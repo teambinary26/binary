@@ -108,11 +108,11 @@ const active = (name, query = {}) => {
                         </div>
                     </div>
                     <nav class="flex gap-2 overflow-x-auto border-t border-gov-border px-2 py-2 text-xs lg:hidden">
-                        <Link :href="route('admin.dashboard')">Dashboard</Link>
-                        <Link :href="route('admin.applications.index')">Applications</Link>
+                        <Link v-if="can('dashboard.view')" :href="route('admin.dashboard')">Dashboard</Link>
+                        <Link v-if="can('applications.view')" :href="route('admin.applications.index')">Applications</Link>
                         <Link v-if="can('applications.view')" :href="route('admin.workflow.index')">Workflow</Link>
-                        <Link :href="route('admin.programs.index')">Programs</Link>
-                        <Link :href="route('admin.releases.index')">Releases</Link>
+                        <Link v-if="can('programs.view')" :href="route('admin.programs.index')">Programs</Link>
+                        <Link v-if="can('releases.view')" :href="route('admin.releases.index')">Releases</Link>
                     </nav>
                 </header>
                 <main id="main" class="custom-scroll min-h-0 flex-1 overflow-y-scroll overscroll-contain p-4 md:p-6" scroll-region>

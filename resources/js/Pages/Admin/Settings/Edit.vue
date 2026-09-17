@@ -57,7 +57,7 @@ const stepColors = {
             <div class="panel-h">Workflow Staff Assignment</div>
             <div class="panel-body space-y-2">
                 <p class="text-sm text-gov-muted">
-                    Assign one or more staff members to each workflow step. Anyone assigned to a step (and administrators) can work on applications in that step.
+                    Assign one or more staff or SK officials to each workflow step. Sangguniang Kabataan accounts are assigned to verification. Anyone assigned to a step (and administrators) can work on applications in that step.
                 </p>
 
                 <div class="my-4 overflow-hidden rounded-lg border border-gov-border bg-gov-off">

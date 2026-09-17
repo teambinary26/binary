@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\BeneficiaryType;
+use App\Enums\WorkflowStep;
 use App\Models\Applicant;
 use App\Models\ApplicantAddress;
 use App\Models\ApplicantProfile;
@@ -14,6 +15,7 @@ use App\Models\ReleaseSchedule;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Models\WorkflowStaff;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -114,12 +116,17 @@ test('admin users page lists accounts in separate role tables', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Users/Index')
             ->has('administrators.data')
+            ->has('sk.data')
             ->has('staff.data')
             ->has('applicants.data')
             ->has('roles')
             ->where('administrators.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['role'] === 'Administrator'))
+            ->where('sk.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['role'] === 'Sangguniang Kabataan'))
             ->where('staff.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['role'] === 'Staff'))
             ->where('applicants.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['role'] === 'Applicant'))
+            ->where('roles.0.slug', 'administrator')
+            ->where('roles.1.slug', 'sk')
+            ->where('roles.2.slug', 'staff')
         );
 });
 
@@ -146,6 +153,70 @@ test('admin can create a staff user', function () {
     expect($created)->not->toBeNull()
         ->and($created->name)->toBe('New Staff Member')
         ->and($created->role_id)->toBe($role->id);
+});
+
+test('admin can create another administrator', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $role = Role::query()->where('slug', 'administrator')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.users.index'))
+        ->post(route('admin.users.store'), [
+            'name' => 'New Administrator',
+            'email' => 'admin2@nabua.gov.ph',
+            'office' => 'MSWDO',
+            'role_id' => $role->id,
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('admin.users.index'))
+        ->assertSessionHas('success', 'Administrator account created.');
+
+    $created = User::query()->where('email', 'admin2@nabua.gov.ph')->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->isAdmin())->toBeTrue();
+});
+
+test('admin can create an sk account assigned to verification', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $role = Role::query()->where('slug', 'sk')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.users.index'))
+        ->post(route('admin.users.store'), [
+            'name' => 'SK Chairperson',
+            'email' => 'sk.malawag@nabua.gov.ph',
+            'office' => 'SK Malawag',
+            'role_id' => $role->id,
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('admin.users.index'))
+        ->assertSessionHas('success', 'SK account created and assigned to verification.');
+
+    $created = User::query()->where('email', 'sk.malawag@nabua.gov.ph')->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->isSk())->toBeTrue()
+        ->and(WorkflowStaff::isAssignedToStep($created->id, WorkflowStep::Verification))->toBeTrue();
+});
+
+test('seeded sk accounts are assigned to verification and can open the verification queue', function () {
+    $sk = User::query()->where('email', 'sk@nabua.gov.ph')->firstOrFail();
+
+    expect($sk->isSk())->toBeTrue()
+        ->and($sk->canAccessAdmin())->toBeTrue()
+        ->and(WorkflowStaff::isAssignedToStep($sk->id, WorkflowStep::Verification))->toBeTrue();
+
+    $this->actingAs($sk)
+        ->get(route('admin.verification.index'))
+        ->assertOk();
+
+    $this->actingAs($sk)->get(route('admin.users.index'))->assertForbidden();
+    $this->actingAs($sk)->get(route('admin.programs.index'))->assertForbidden();
 });
 
 test('admin can open application processing and program maintenance', function () {

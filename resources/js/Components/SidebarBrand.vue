@@ -13,6 +13,10 @@ const portalLabel = computed(() => {
         return 'Admin Portal';
     }
 
+    if (slug === 'sk' || user.value?.is_sk) {
+        return 'SK Portal';
+    }
+
     if (slug === 'staff' || user.value?.is_staff) {
         return 'Staff Portal';
     }

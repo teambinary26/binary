@@ -43,6 +43,7 @@ const submit = () => form.post(route('login.store'));
                     <ul class="mt-2 space-y-0.5 break-all sm:break-normal">
                         <li>admin@nabua.gov.ph — Administrator</li>
                         <li>staff@nabua.gov.ph — Staff</li>
+                        <li>sk@nabua.gov.ph — Sangguniang Kabataan</li>
                         <li>juan.delacruz@email.com — Applicant</li>
                     </ul>
                 </div>

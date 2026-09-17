@@ -32,7 +32,7 @@ const submit = () => {
 <template>
     <AdminLayout>
         <Head :title="staff ? 'Edit User' : 'Create User'" />
-        <PageHeader :title="staff ? 'Edit user' : 'Create staff user'" />
+        <PageHeader :title="staff ? 'Edit user' : 'Create user'" />
         <form class="panel" @submit.prevent="submit">
             <div class="grid gap-4 p-4 md:grid-cols-2">
                 <div><label>Name</label><input v-model="form.name" required></div>
@@ -42,8 +42,10 @@ const submit = () => {
                 <div>
                     <label>Role</label>
                     <select v-model="form.role_id" required>
+                        <option disabled value="">Select role</option>
                         <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
                     </select>
+                    <p class="mt-1 text-xs text-gov-muted">Administrator creates another admin. SK is assigned to document verification.</p>
                 </div>
                 <label class="flex items-center gap-2 text-sm font-normal normal-case tracking-normal">
                     <input v-model="form.is_active" type="checkbox"> Active

@@ -65,6 +65,7 @@ class HandleInertiaRequests extends Middleware
                     'is_applicant' => $user->isApplicant(),
                     'is_admin' => $user->isAdmin(),
                     'is_super_admin' => $user->isAdmin(),
+                    'is_sk' => $user->isSk(),
                     'role_name' => $user->role?->name,
                     'role_slug' => $user->role?->slug,
                     'permissions' => $user->isAdmin()

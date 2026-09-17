@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\WorkflowStep;
 use App\Exceptions\CouldNotDeleteUserException;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\WorkflowStaff;
 use App\Services\AuditService;
 use App\Services\UserDeletionService;
 use App\Support\CamData;
@@ -30,6 +32,7 @@ class UserController extends Controller
             'office' => $row->office,
             'is_active' => $row->is_active,
             'is_staff' => $row->isStaff(),
+            'is_sk' => $row->isSk(),
             'is_applicant' => $row->isApplicant(),
             'can_delete' => $row->id !== $currentId,
             'last_login_at' => gov_datetime($row->last_login_at),
@@ -43,9 +46,10 @@ class UserController extends Controller
 
         return Inertia::render('Admin/Users/Index', [
             'administrators' => CamData::paginator($byRole('administrator', 'admin_page'), $mapUser),
+            'sk' => CamData::paginator($byRole('sk', 'sk_page'), $mapUser),
             'staff' => CamData::paginator($byRole('staff', 'staff_page'), $mapUser),
             'applicants' => CamData::paginator($byRole('applicant', 'applicant_page'), $mapUser),
-            'roles' => $this->staffRoles(),
+            'roles' => $this->assignableRoles(),
         ]);
     }
 
@@ -58,9 +62,13 @@ class UserController extends Controller
     {
         $data = $this->validated($request);
         $user = User::query()->create($data);
-        $audit->log('created', 'Created staff user '.$user->email, subject: $user);
+        $user->load('role');
+        $this->assignSkToVerification($user);
+        $audit->log('created', 'Created user '.$user->email.' ('.$user->role?->name.')', subject: $user);
 
-        return redirect()->route('admin.users.index')->with('success', 'User created.');
+        return redirect()->route('admin.users.index')->with('success', $user->isAdmin()
+            ? 'Administrator account created.'
+            : ($user->isSk() ? 'SK account created and assigned to verification.' : 'User created.'));
     }
 
     public function edit(User $user): Response
@@ -75,7 +83,7 @@ class UserController extends Controller
                 'role_id' => $user->role_id,
                 'is_active' => $user->is_active,
             ],
-            'roles' => $this->staffRoles(),
+            'roles' => $this->assignableRoles(),
         ]);
     }
 
@@ -86,7 +94,9 @@ class UserController extends Controller
             unset($data['password']);
         }
         $user->update($data);
-        $audit->log('updated', 'Updated staff user '.$user->email, subject: $user);
+        $user->load('role');
+        $this->assignSkToVerification($user);
+        $audit->log('updated', 'Updated user '.$user->email, subject: $user);
 
         return back()->with('success', 'User updated.');
     }
@@ -111,13 +121,28 @@ class UserController extends Controller
                 : 'User deleted.');
     }
 
-    private function staffRoles(): array
+    private function assignableRoles(): array
     {
+        $order = array_flip(Role::MUNICIPAL_SLUGS);
+
         return Role::query()
-            ->whereIn('slug', ['administrator', 'staff'])
-            ->orderBy('name')
-            ->get(['id', 'name'])
+            ->whereIn('slug', Role::MUNICIPAL_SLUGS)
+            ->get(['id', 'name', 'slug', 'description'])
+            ->sortBy(fn (Role $role) => $order[$role->slug] ?? 99)
+            ->values()
             ->toArray();
+    }
+
+    private function assignSkToVerification(User $user): void
+    {
+        if (! $user->isSk()) {
+            return;
+        }
+
+        WorkflowStaff::query()->firstOrCreate([
+            'workflow_step' => WorkflowStep::Verification->value,
+            'user_id' => $user->id,
+        ]);
     }
 
     private function validated(Request $request, ?int $id = null): array
@@ -127,10 +152,11 @@ class UserController extends Controller
             'email' => ['required', 'email', 'unique:users,email'.($id ? ','.$id : '')],
             'employee_no' => ['nullable', 'string', 'max:50'],
             'office' => ['nullable', 'string', 'max:150'],
-            'role_id' => ['required', Rule::exists('roles', 'id')->where(fn ($query) => $query->whereIn('slug', ['administrator', 'staff']))],
+            'role_id' => ['required', Rule::exists('roles', 'id')->where(fn ($query) => $query->whereIn('slug', Role::MUNICIPAL_SLUGS))],
             'password' => [$id ? 'nullable' : 'required', 'confirmed', Password::min(8)],
             'is_active' => ['nullable', 'boolean'],
         ]);
+        $data['role_id'] = (int) $data['role_id'];
         $data['is_active'] = $request->boolean('is_active', true);
 
         return $data;

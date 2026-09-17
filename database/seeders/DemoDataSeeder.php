@@ -28,14 +28,20 @@ class DemoDataSeeder extends Seeder
         $password = Hash::make('Password123!');
         $roles = Role::query()->pluck('id', 'slug');
 
-        $staff = [
+        $municipal = [
             ['administrator', 'Maria Cristina Reyes', 'admin@nabua.gov.ph', 'MSWDO-0001', 'MSWDO'],
             ['staff', 'Jose Antonio Villanueva', 'staff@nabua.gov.ph', 'MSWDO-0002', 'MSWDO'],
+            ['sk', 'Rafael Mendoza', 'sk@nabua.gov.ph', 'SK-0001', 'Sangguniang Kabataan Federation'],
+            ['sk', 'Kristine Mae Lopez', 'sk.poblacion@nabua.gov.ph', 'SK-0002', 'SK Poblacion'],
+            ['sk', 'John Paulo Rivera', 'sk.sanjose@nabua.gov.ph', 'SK-0003', 'SK San Jose'],
         ];
 
         $users = [];
-        foreach ($staff as [$role, $name, $email, $employee, $office]) {
-            $users[$role] = User::query()->updateOrCreate(
+        $skUsers = [];
+        $keepEmails = [];
+        foreach ($municipal as [$role, $name, $email, $employee, $office]) {
+            $keepEmails[] = $email;
+            $user = User::query()->updateOrCreate(
                 ['email' => $email],
                 [
                     'role_id' => $roles[$role],
@@ -47,25 +53,35 @@ class DemoDataSeeder extends Seeder
                     'email_verified_at' => now(),
                 ]
             );
+            $users[$role] = $user;
+            if ($role === 'sk') {
+                $skUsers[] = $user;
+            }
         }
 
         User::query()
-            ->whereHas('role', fn ($query) => $query->whereIn('slug', ['administrator', 'staff']))
-            ->whereNotIn('email', ['admin@nabua.gov.ph', 'staff@nabua.gov.ph'])
+            ->whereHas('role', fn ($query) => $query->whereIn('slug', Role::MUNICIPAL_SLUGS))
+            ->whereNotIn('email', $keepEmails)
             ->update(['is_active' => false]);
 
-        WorkflowStaff::query()->updateOrCreate(
-            ['workflow_step' => WorkflowStep::Verification],
-            ['user_id' => $users['staff']->id],
-        );
-        WorkflowStaff::query()->updateOrCreate(
-            ['workflow_step' => WorkflowStep::Evaluation],
-            ['user_id' => $users['staff']->id],
-        );
-        WorkflowStaff::query()->updateOrCreate(
-            ['workflow_step' => WorkflowStep::Approval],
-            ['user_id' => $users['administrator']->id],
-        );
+        WorkflowStaff::query()->firstOrCreate([
+            'workflow_step' => WorkflowStep::Verification->value,
+            'user_id' => $users['staff']->id,
+        ]);
+        foreach ($skUsers as $skUser) {
+            WorkflowStaff::query()->firstOrCreate([
+                'workflow_step' => WorkflowStep::Verification->value,
+                'user_id' => $skUser->id,
+            ]);
+        }
+        WorkflowStaff::query()->firstOrCreate([
+            'workflow_step' => WorkflowStep::Evaluation->value,
+            'user_id' => $users['staff']->id,
+        ]);
+        WorkflowStaff::query()->firstOrCreate([
+            'workflow_step' => WorkflowStep::Approval->value,
+            'user_id' => $users['administrator']->id,
+        ]);
 
         $programs = AssistanceProgram::query()->with(['requirements', 'formFields', 'category'])->get();
 

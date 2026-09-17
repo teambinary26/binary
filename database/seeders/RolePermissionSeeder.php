@@ -64,6 +64,16 @@ class RolePermissionSeeder extends Seeder
                     'announcements.view',
                 ],
             ],
+            'sk' => [
+                'name' => 'Sangguniang Kabataan',
+                'description' => 'SK officials assigned to document verification. They can review applications and verify submitted requirements.',
+                'permissions' => [
+                    'dashboard.view',
+                    'applicants.view',
+                    'applications.view',
+                    'applications.verify',
+                ],
+            ],
             'applicant' => [
                 'name' => 'Applicant',
                 'description' => 'Registered citizen account for online applications.',

@@ -68,24 +68,19 @@ test('staff lose access to a page after the admin removes that permission', func
     $this->actingAs($staff)->get(route('admin.programs.index'))->assertForbidden();
 });
 
-test('administrator and applicant roles cannot be edited from this page', function () {
+test('administrator, sk, and applicant roles cannot be edited from this page', function () {
     $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
     $administrator = Role::query()->where('slug', 'administrator')->firstOrFail();
+    $sk = Role::query()->where('slug', 'sk')->firstOrFail();
     $applicant = Role::query()->where('slug', 'applicant')->firstOrFail();
 
-    $this->actingAs($admin)
-        ->from(route('admin.roles.index'))
-        ->put(route('admin.roles.update', $administrator), [
-            'permission_slugs' => ['dashboard.view'],
-        ])
-        ->assertRedirect(route('admin.roles.index'))
-        ->assertSessionHasErrors('role');
-
-    $this->actingAs($admin)
-        ->from(route('admin.roles.index'))
-        ->put(route('admin.roles.update', $applicant), [
-            'permission_slugs' => ['dashboard.view'],
-        ])
-        ->assertRedirect(route('admin.roles.index'))
-        ->assertSessionHasErrors('role');
+    foreach ([$administrator, $sk, $applicant] as $role) {
+        $this->actingAs($admin)
+            ->from(route('admin.roles.index'))
+            ->put(route('admin.roles.update', $role), [
+                'permission_slugs' => ['dashboard.view'],
+            ])
+            ->assertRedirect(route('admin.roles.index'))
+            ->assertSessionHasErrors('role');
+    }
 });

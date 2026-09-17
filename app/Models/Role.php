@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
+    public const MUNICIPAL_SLUGS = ['administrator', 'sk', 'staff'];
+
     protected $fillable = ['name', 'slug', 'description'];
 
     public function permissions(): BelongsToMany
@@ -33,5 +35,10 @@ class Role extends Model
     public function isApplicant(): bool
     {
         return $this->slug === 'applicant';
+    }
+
+    public function isSk(): bool
+    {
+        return $this->slug === 'sk';
     }
 }

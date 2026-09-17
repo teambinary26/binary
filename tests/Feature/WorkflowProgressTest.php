@@ -78,8 +78,8 @@ test('admin can assign multiple staff members to one workflow step', function ()
 });
 
 test('submitting a completed application assigns verification staff', function () {
-    $verifier = WorkflowStaff::staffForStep(WorkflowStep::Verification);
-    expect($verifier)->not->toBeNull();
+    $verifiers = WorkflowStaff::staffMembersForStep(WorkflowStep::Verification)->pluck('id');
+    expect($verifiers)->not->toBeEmpty();
 
     $source = Application::query()
         ->has('documents')
@@ -117,7 +117,7 @@ test('submitting a completed application assigns verification staff', function (
     $application->refresh();
 
     expect($application->status)->toBe(ApplicationStatus::Submitted)
-        ->and($application->assigned_staff_id)->toBe($verifier->id);
+        ->and($verifiers)->toContain($application->assigned_staff_id);
 });
 
 test('verifying all documents does not skip evaluation until marked as done', function () {
