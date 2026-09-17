@@ -43,7 +43,9 @@ const submit = () => {
                     <label>Role</label>
                     <select v-model="form.role_id" required>
                         <option disabled value="">Select role</option>
-                        <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
+                        <option v-for="role in roles" :key="role.id" :value="role.id">
+                            {{ role.slug === 'sk' ? 'Sangguniang Kabataan (SK)' : role.name }}
+                        </option>
                     </select>
                     <p class="mt-1 text-xs text-gov-muted">Administrator creates another admin. SK is assigned to document verification.</p>
                 </div>

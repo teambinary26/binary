@@ -123,6 +123,8 @@ class UserController extends Controller
 
     private function assignableRoles(): array
     {
+        Role::ensureSk();
+
         $order = array_flip(Role::MUNICIPAL_SLUGS);
 
         return Role::query()

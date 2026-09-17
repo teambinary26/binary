@@ -130,6 +130,31 @@ test('admin users page lists accounts in separate role tables', function () {
         );
 });
 
+test('create user role list includes sk even if the role was missing', function () {
+    $staffId = Role::query()->where('slug', 'staff')->value('id');
+    $sk = Role::query()->where('slug', 'sk')->first();
+
+    if ($sk) {
+        User::query()->where('role_id', $sk->id)->update(['role_id' => $staffId]);
+        $sk->permissions()->detach();
+        $sk->delete();
+    }
+
+    expect(Role::query()->where('slug', 'sk')->exists())->toBeFalse();
+
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.users.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('roles.1.slug', 'sk')
+            ->where('roles.1.name', 'Sangguniang Kabataan')
+        );
+
+    expect(Role::query()->where('slug', 'sk')->exists())->toBeTrue();
+});
+
 test('admin can create a staff user', function () {
     $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
     $role = Role::query()->where('slug', 'staff')->firstOrFail();

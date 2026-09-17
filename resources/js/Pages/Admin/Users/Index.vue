@@ -196,7 +196,9 @@ const confirmRemove = () => {
                     <label for="user-role">Role</label>
                     <select id="user-role" v-model="form.role_id" required>
                         <option disabled value="">Select role</option>
-                        <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
+                        <option v-for="role in roles" :key="role.id" :value="role.id">
+                            {{ role.slug === 'sk' ? 'Sangguniang Kabataan (SK)' : role.name }}
+                        </option>
                     </select>
                     <p class="mt-1 text-xs text-gov-muted">
                         Choose Administrator to create another admin. Sangguniang Kabataan accounts are assigned to document verification.

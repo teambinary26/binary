@@ -10,6 +10,13 @@ class Role extends Model
 {
     public const MUNICIPAL_SLUGS = ['administrator', 'sk', 'staff'];
 
+    public const SK_PERMISSIONS = [
+        'dashboard.view',
+        'applicants.view',
+        'applications.view',
+        'applications.verify',
+    ];
+
     protected $fillable = ['name', 'slug', 'description'];
 
     public function permissions(): BelongsToMany
@@ -40,5 +47,26 @@ class Role extends Model
     public function isSk(): bool
     {
         return $this->slug === 'sk';
+    }
+
+    public static function ensureSk(): self
+    {
+        $role = static::query()->updateOrCreate(
+            ['slug' => 'sk'],
+            [
+                'name' => 'Sangguniang Kabataan',
+                'description' => 'SK officials assigned to document verification. They can review applications and verify submitted requirements.',
+            ]
+        );
+
+        $permissionIds = Permission::query()
+            ->whereIn('slug', self::SK_PERMISSIONS)
+            ->pluck('id');
+
+        if ($permissionIds->isNotEmpty() && $role->permissions()->count() === 0) {
+            $role->permissions()->sync($permissionIds);
+        }
+
+        return $role;
     }
 }

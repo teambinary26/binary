@@ -16,6 +16,8 @@ class RoleController extends Controller
 {
     public function index(): Response
     {
+        Role::ensureSk();
+
         $roles = Role::query()->with('permissions')->withCount('users')->orderBy('name')->get();
         $catalog = Permission::query()
             ->orderBy('module')
