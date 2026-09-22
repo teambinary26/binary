@@ -123,6 +123,7 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/categories', [Admin\CategoryController::class, 'index'])->name('categories.index');
         Route::post('/categories', [Admin\CategoryController::class, 'store'])->middleware('permission:programs.manage')->name('categories.store');
         Route::put('/categories/{category}', [Admin\CategoryController::class, 'update'])->middleware('permission:programs.manage')->name('categories.update');
+        Route::delete('/categories/{category}', [Admin\CategoryController::class, 'destroy'])->middleware('permission:programs.manage')->name('categories.destroy');
         Route::get('/requirements', [Admin\RequirementController::class, 'index'])->name('requirements.index');
         Route::post('/requirements', [Admin\RequirementController::class, 'store'])->middleware('permission:programs.manage')->name('requirements.store');
         Route::delete('/requirements/{requirement}', [Admin\RequirementController::class, 'destroy'])->middleware('permission:programs.manage')->name('requirements.destroy');

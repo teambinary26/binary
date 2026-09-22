@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProgramCategory;
+use App\Services\AuditService;
 use App\Support\CamData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class CategoryController extends Controller
                 'programs_count' => $c->programs_count,
                 'is_active' => $c->is_active,
                 'description' => $c->description,
+                'can_delete' => $c->programs_count === 0,
             ]),
         ]);
     }
@@ -56,5 +58,18 @@ class CategoryController extends Controller
         $category->update($data);
 
         return back()->with('success', 'Category updated.');
+    }
+
+    public function destroy(ProgramCategory $category, AuditService $audit): RedirectResponse
+    {
+        if ($category->programs()->exists()) {
+            return back()->with('error', 'This category cannot be deleted while programs still use it.');
+        }
+
+        $name = $category->name;
+        $category->delete();
+        $audit->log('deleted', 'Deleted program category '.$name);
+
+        return back()->with('success', 'Category deleted.');
     }
 }

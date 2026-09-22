@@ -465,13 +465,30 @@ test('inactive staff cannot open the staff dashboard', function () {
 
 test('admin can delete a beneficiary without applications', function () {
     $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
-    $applicant = Applicant::query()
-        ->whereDoesntHave('applications')
-        ->first();
+    $roleId = Role::query()->where('slug', 'applicant')->value('id');
 
-    if (! $applicant) {
-        $this->markTestSkipped('No applicant without applications in demo data.');
-    }
+    $user = User::factory()->create([
+        'role_id' => $roleId,
+        'name' => 'Delete Me Beneficiary',
+        'email' => 'delete.me.beneficiary@example.com',
+        'is_active' => true,
+    ]);
+
+    $applicant = Applicant::query()->create([
+        'user_id' => $user->id,
+        'applicant_no' => 'BEN-TEST-DELETE-1',
+        'full_name' => 'Delete Me Beneficiary',
+        'date_of_birth' => '2000-01-15',
+        'sex' => 'female',
+        'contact_number' => '09170000000',
+        'email' => $user->email,
+    ]);
+
+    $applicant->profile()->create([
+        'beneficiary_type' => BeneficiaryType::NonStudent,
+    ]);
+
+    expect($applicant->applications()->exists())->toBeFalse();
 
     $this->actingAs($admin)
         ->from(route('admin.applicants.index'))
@@ -479,7 +496,8 @@ test('admin can delete a beneficiary without applications', function () {
         ->assertRedirect(route('admin.applicants.index'))
         ->assertSessionHas('success');
 
-    expect(Applicant::query()->whereKey($applicant->id)->exists())->toBeFalse();
+    expect(Applicant::query()->whereKey($applicant->id)->exists())->toBeFalse()
+        ->and(User::query()->whereKey($user->id)->exists())->toBeFalse();
 });
 
 test('admin cannot delete a beneficiary with applications', function () {
@@ -620,6 +638,7 @@ test('listing pages expose paginated records', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('categories.data')
             ->has('categories.links')
+            ->where('categories.data.0.can_delete', fn ($value) => is_bool($value))
         );
 
     $this->actingAs($admin)->get('/admin/requirements')
@@ -676,6 +695,58 @@ test('listing pages expose paginated records', function () {
                 ->has('applications.data')
             );
     }
+});
+
+test('admin can update a program category', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $category = ProgramCategory::query()->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.categories.index'))
+        ->put(route('admin.categories.update', $category), [
+            'name' => 'Updated Category Name',
+            'group' => $category->group,
+            'description' => 'Updated description',
+            'is_active' => 1,
+        ])
+        ->assertRedirect(route('admin.categories.index'))
+        ->assertSessionHas('success');
+
+    expect($category->fresh()->name)->toBe('Updated Category Name')
+        ->and($category->fresh()->description)->toBe('Updated description');
+});
+
+test('admin can delete a category without programs', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $category = ProgramCategory::query()->create([
+        'name' => 'Temporary Unused Category',
+        'slug' => 'temporary-unused-category',
+        'group' => 'general',
+        'description' => 'Created for delete test',
+        'sort_order' => 99,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->from(route('admin.categories.index'))
+        ->delete(route('admin.categories.destroy', $category))
+        ->assertRedirect(route('admin.categories.index'))
+        ->assertSessionHas('success');
+
+    expect(ProgramCategory::query()->whereKey($category->id)->exists())->toBeFalse();
+});
+
+test('admin cannot delete a category that has programs', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $category = ProgramCategory::query()->has('programs')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.categories.index'))
+        ->delete(route('admin.categories.destroy', $category))
+        ->assertRedirect(route('admin.categories.index'))
+        ->assertSessionHas('error');
+
+    expect(ProgramCategory::query()->whereKey($category->id)->exists())->toBeTrue();
 });
 
 test('public status inquiry finds an application by number only', function () {
