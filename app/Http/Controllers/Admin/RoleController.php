@@ -42,7 +42,7 @@ class RoleController extends Controller
                 'slug' => $role->slug,
                 'description' => $role->description,
                 'users_count' => $role->users_count,
-                'can_edit' => $role->slug === 'staff',
+                'can_edit' => $this->canEdit($role),
                 'permissions' => $role->permissions->map(fn ($permission) => [
                     'id' => $permission->id,
                     'name' => $permission->name,
@@ -55,9 +55,9 @@ class RoleController extends Controller
 
     public function update(Request $request, Role $role, AuditService $audit): RedirectResponse
     {
-        if ($role->slug !== 'staff') {
+        if (! $this->canEdit($role)) {
             throw ValidationException::withMessages([
-                'role' => 'Only staff page access can be changed from this page.',
+                'role' => 'Only staff and Sangguniang Kabataan page access can be changed from this page.',
             ]);
         }
 
@@ -81,9 +81,16 @@ class RoleController extends Controller
             ->pluck('id');
 
         $role->permissions()->sync($ids);
-        $audit->log('updated', 'Updated staff page access', subject: $role);
 
-        return back()->with('success', 'Staff page access has been updated.');
+        $label = $role->isSk() ? 'Sangguniang Kabataan' : 'Staff';
+        $audit->log('updated', "Updated {$label} page access", subject: $role);
+
+        return back()->with('success', "{$label} page access has been updated.");
+    }
+
+    private function canEdit(Role $role): bool
+    {
+        return in_array($role->slug, ['staff', 'sk'], true);
     }
 
     /**

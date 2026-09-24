@@ -477,3 +477,32 @@ test('opening a for-revision application with replacements already uploaded retu
 
     expect($application->fresh()->status)->toBe(ApplicationStatus::UnderVerification);
 });
+
+test('a person can open only the workflow steps they are assigned to', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $staff = User::query()->where('email', 'staff@nabua.gov.ph')->firstOrFail();
+
+    WorkflowStaff::query()->where('user_id', $staff->id)->delete();
+    WorkflowStaff::query()->create([
+        'workflow_step' => WorkflowStep::Verification->value,
+        'user_id' => $staff->id,
+    ]);
+
+    $this->actingAs($staff)->get(route('admin.verification.index'))->assertOk();
+    $this->actingAs($staff)->get(route('admin.evaluation.index'))->assertForbidden();
+    $this->actingAs($staff)->get(route('admin.approvals.index'))->assertForbidden();
+
+    $this->actingAs($admin)
+        ->put(route('admin.settings.workflow'), [
+            'assignments' => [
+                ['workflow_step' => 'verification', 'user_ids' => []],
+                ['workflow_step' => 'evaluation', 'user_ids' => [$staff->id]],
+                ['workflow_step' => 'approval', 'user_ids' => []],
+            ],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($staff)->get(route('admin.verification.index'))->assertForbidden();
+    $this->actingAs($staff)->get(route('admin.evaluation.index'))->assertOk();
+    $this->actingAs($staff)->get(route('admin.approvals.index'))->assertForbidden();
+});

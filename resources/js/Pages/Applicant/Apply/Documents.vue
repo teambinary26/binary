@@ -265,9 +265,9 @@ const jumpTo = (requirementId) => {
                     <div class="flex flex-wrap gap-1">
                         <span v-if="requirement.is_required" class="badge badge-danger">Required</span>
                         <span v-else class="badge badge-neutral">Optional</span>
-                        <span v-if="needsReplace(documentFor(requirement.id))" class="badge badge-warning">{{ documentFor(requirement.id).status_label }}</span>
-                        <span v-else-if="documentFor(requirement.id)" class="badge badge-success">Uploaded</span>
-                        <span v-else class="badge badge-warning">Not uploaded</span>
+                        <span v-if="needsReplace(documentFor(requirement.id))" class="text-xs font-bold uppercase tracking-wide text-[#8a6400]">{{ documentFor(requirement.id).status_label }}</span>
+                        <span v-else-if="documentFor(requirement.id)" class="text-xs font-bold uppercase tracking-wide text-gov-success">Uploaded</span>
+                        <span v-else class="text-xs font-bold uppercase tracking-wide text-[#8a6400]">Not uploaded</span>
                     </div>
                 </div>
 

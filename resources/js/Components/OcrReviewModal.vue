@@ -92,7 +92,13 @@ const close = () => emit('close');
                     <div>
                         <p class="text-xs font-bold uppercase tracking-wide text-gov-muted">OCR result</p>
                         <p v-if="document.ocr" class="mt-1">
-                            <span class="badge" :class="`badge-${document.ocr.tone}`">{{ document.ocr.overall_label }}</span>
+                            <span class="text-xs font-bold uppercase tracking-wide" :class="{
+                                'text-gov-success': document.ocr.tone === 'success',
+                                'text-[#8a6400]': document.ocr.tone === 'warning',
+                                'text-gov-danger': document.ocr.tone === 'danger',
+                                'text-gov-blue': document.ocr.tone === 'info',
+                                'text-gov-muted': !['success', 'warning', 'danger', 'info'].includes(document.ocr.tone),
+                            }">{{ document.ocr.overall_label }}</span>
                         </p>
                         <p class="mt-2 text-sm">{{ document.ocr?.summary || 'OCR has not been run for this file.' }}</p>
                         <p v-if="document.ocr && document.ocr.type_matches === false" class="mt-2 text-sm text-gov-warning">
@@ -111,10 +117,10 @@ const close = () => emit('close');
                             <div v-for="field in fields" :key="field.id" class="border border-gov-border p-3">
                                 <div class="mb-2 flex items-center justify-between gap-2">
                                     <strong class="text-sm">{{ field.label }}</strong>
-                                    <span class="badge" :class="{
-                                        'badge-success': field.match_status === 'matched',
-                                        'badge-warning': field.match_status === 'mismatch' || field.match_status === 'missing',
-                                        'badge-info': field.match_status === 'extracted' || field.match_status === 'manual',
+                                    <span class="text-xs font-bold uppercase tracking-wide" :class="{
+                                        'text-gov-success': field.match_status === 'matched',
+                                        'text-[#8a6400]': field.match_status === 'mismatch' || field.match_status === 'missing',
+                                        'text-gov-blue': field.match_status === 'extracted' || field.match_status === 'manual',
                                     }">
                                         {{ field.match_status === 'matched' ? '✓ Matched' : field.match_status.replaceAll('_', ' ') }}
                                     </span>
@@ -131,8 +137,7 @@ const close = () => emit('close');
                     </div>
 
                     <div v-if="canVerify" class="flex flex-wrap gap-2">
-                        <button class="btn-secondary btn-sm" type="button" :disabled="saveForm.processing" @click="saveFields">Save OCR corrections</button>
-                        <button class="btn-ghost btn-sm" type="button" @click="emit('rerun')">Run OCR again</button>
+                        <button class="btn-secondary btn-sm cursor-pointer" type="button" :disabled="saveForm.processing" @click="saveFields">Save OCR corrections</button>
                     </div>
 
                     <div v-if="canVerify" class="border-t border-gov-border pt-3">

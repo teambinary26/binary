@@ -153,6 +153,12 @@ class ApplicationController extends Controller
         $applicationService->syncAssignedStaff($application);
         $application->refresh();
 
+        $application->load('documents');
+        foreach ($application->documents as $document) {
+            app(DocumentOcrService::class)->ensureScanned($document);
+        }
+        $application->unsetRelation('documents');
+
         $application->load([
             'applicant.profile', 'applicant.primaryAddress', 'applicant.user',
             'program.category', 'program.requirements', 'program.eligibilityRules', 'program.formFields',

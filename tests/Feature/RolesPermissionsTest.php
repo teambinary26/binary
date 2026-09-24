@@ -68,13 +68,46 @@ test('staff lose access to a page after the admin removes that permission', func
     $this->actingAs($staff)->get(route('admin.programs.index'))->assertForbidden();
 });
 
-test('administrator, sk, and applicant roles cannot be edited from this page', function () {
+test('admin can choose which pages the sangguniang kabataan role can open', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $skUser = User::query()->where('email', 'sk@nabua.gov.ph')->firstOrFail();
+    $skRole = Role::query()->where('slug', 'sk')->firstOrFail();
+
+    $this->actingAs($skUser)->get(route('admin.programs.index'))->assertForbidden();
+
+    $this->actingAs($admin)
+        ->from(route('admin.roles.index'))
+        ->put(route('admin.roles.update', $skRole), [
+            'permission_slugs' => [
+                'dashboard.view',
+                'applications.view',
+                'applications.verify',
+                'programs.view',
+            ],
+        ])
+        ->assertRedirect(route('admin.roles.index'))
+        ->assertSessionHas('success', 'Sangguniang Kabataan page access has been updated.');
+
+    $skRole->refresh()->load('permissions');
+
+    expect($skRole->permissions->pluck('slug')->all())
+        ->toContain('dashboard.view')
+        ->toContain('programs.view')
+        ->not->toContain('roles.manage');
+
+    $skUser->unsetRelation('role');
+    $skUser->refresh();
+
+    $this->actingAs($skUser)->get(route('admin.programs.index'))->assertOk();
+    $this->actingAs($skUser)->get(route('admin.users.index'))->assertForbidden();
+});
+
+test('administrator and applicant roles cannot be edited from this page', function () {
     $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
     $administrator = Role::query()->where('slug', 'administrator')->firstOrFail();
-    $sk = Role::query()->where('slug', 'sk')->firstOrFail();
     $applicant = Role::query()->where('slug', 'applicant')->firstOrFail();
 
-    foreach ([$administrator, $sk, $applicant] as $role) {
+    foreach ([$administrator, $applicant] as $role) {
         $this->actingAs($admin)
             ->from(route('admin.roles.index'))
             ->put(route('admin.roles.update', $role), [

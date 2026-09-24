@@ -226,12 +226,12 @@ test('manual prior-assistance rules are left for staff and list earlier applicat
 
     expect($result['rules'][0]['check_mode'])->toBe('ocr')
         ->and($result['rules'][0]['status'])->toBe('passed')
-        ->and($result['rules'][1]['check_mode'])->toBe('manual')
-        ->and($result['rules'][1]['status'])->toBe('review')
+        ->and($result['rules'][1]['status'])->toBe('failed')
         ->and($result['rules'][1]['shows_prior_records'])->toBeTrue()
         ->and($result['rules'][1]['prior_records'])->toHaveCount(1)
         ->and($result['rules'][1]['prior_records'][0]['application_no'])->toBe('CAMS-2026-PRIOR01')
-        ->and($result['status'])->toBe('review');
+        ->and($result['step_one'])->not->toBeEmpty()
+        ->and($result['status'])->toBe('not_eligible');
 });
 
 test('missing ocr text asks staff to scan before saving', function () {

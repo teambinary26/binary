@@ -16,17 +16,17 @@ class ApprovalController extends Controller
     public function index(): Response
     {
         $user = request()->user();
+        abort_unless(
+            $user->isAdmin() || WorkflowStaff::isAssignedToStep($user->id, WorkflowStep::Approval),
+            403,
+            'You are not assigned to this workflow step.',
+        );
 
         $applications = Application::query()
             ->with(['applicant', 'program.category', 'latestEvaluation'])
             ->where(function ($q) {
                 $q->where('status', ApplicationStatus::ForApproval->value)
                     ->orWhere('status', ApplicationStatus::Approved->value);
-            })
-            ->when(! $user->isAdmin(), function ($q) use ($user) {
-                if (! WorkflowStaff::isAssignedToStep($user->id, WorkflowStep::Approval)) {
-                    $q->whereRaw('0 = 1');
-                }
             })
             ->latest('submitted_at')
             ->paginate(15);

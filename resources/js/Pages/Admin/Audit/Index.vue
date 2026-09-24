@@ -41,7 +41,7 @@ const submit = () => form.get(route('admin.audit-logs.index'), { preserveState: 
             <tbody>
                 <tr v-for="log in logs.data" :key="log.id">
                     <td data-label="User">{{ log.user }}</td>
-                    <td data-label="Action"><span class="badge badge-info">{{ log.action }}</span></td>
+                    <td data-label="Action"><span class="text-xs font-bold uppercase tracking-wide text-gov-blue">{{ log.action }}</span></td>
                     <td data-label="Application">{{ log.application_no || '—' }}</td>
                     <td data-label="Date">{{ log.created_at }}</td>
                     <td data-label="IP">{{ log.ip_address }}</td>

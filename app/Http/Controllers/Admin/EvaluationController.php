@@ -16,15 +16,15 @@ class EvaluationController extends Controller
     public function index(): Response
     {
         $user = request()->user();
+        abort_unless(
+            $user->isAdmin() || WorkflowStaff::isAssignedToStep($user->id, WorkflowStep::Evaluation),
+            403,
+            'You are not assigned to this workflow step.',
+        );
 
         $applications = Application::query()
             ->with(['applicant', 'program.category', 'latestEvaluation'])
             ->where('status', ApplicationStatus::UnderEvaluation->value)
-            ->when(! $user->isAdmin(), function ($q) use ($user) {
-                if (! WorkflowStaff::isAssignedToStep($user->id, WorkflowStep::Evaluation)) {
-                    $q->whereRaw('0 = 1');
-                }
-            })
             ->latest('submitted_at')
             ->paginate(15);
 

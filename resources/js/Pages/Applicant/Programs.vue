@@ -56,7 +56,7 @@ const currentHref = computed(() => {
                         class="btn-primary w-full text-center sm:w-auto"
                         :href="route('site.apply.create', program.slug)"
                     >Apply</Link>
-                    <span v-else class="badge badge-neutral">Closed</span>
+                    <span v-else class="text-xs font-bold uppercase tracking-wide text-gov-muted">Closed</span>
                 </div>
             </article>
         </div>

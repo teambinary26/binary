@@ -18,6 +18,21 @@ class DocumentOcrService
         private OcrExtractor $extractor,
     ) {}
 
+    public function ensureScanned(DocumentSubmission $document): void
+    {
+        $document->loadMissing('ocrResult');
+
+        if (in_array($document->ocrResult?->status, ['processed', 'failed'], true)) {
+            return;
+        }
+
+        if ((string) config('services.ocrspace.key') === '') {
+            return;
+        }
+
+        $this->process($document, notifyOnMismatch: false);
+    }
+
     public function process(DocumentSubmission $document, bool $notifyOnMismatch = true): OcrResult
     {
         $document->loadMissing([

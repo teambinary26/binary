@@ -7,6 +7,7 @@ use App\Enums\DocumentVerificationStatus;
 use App\Models\Application;
 use App\Models\DocumentSubmission;
 use App\Models\ProgramEligibilityRule;
+use App\Support\CamData;
 use App\Support\OcrExtractor;
 use App\Support\OcrFields;
 use Carbon\Carbon;
@@ -109,24 +110,27 @@ class EligibilityAssessmentService
         $rules = $application->program?->eligibilityRules ?? collect();
 
         if ($rules->isEmpty()) {
-            return $this->payload(
+            $payload = $this->payload(
                 'no_rules',
                 'This program has no eligibility rules to check.',
                 [],
                 $corpus['sources'],
             );
+            $payload['step_one'] = $this->stepOneResults($application);
+
+            return $payload;
         }
 
         $checked = $rules->map(function (ProgramEligibilityRule $rule) use ($application, $corpus) {
-            if ($this->isManual($rule)) {
-                return $this->manualResult($rule, $application);
+            if ($this->looksLikePriorAssistance($rule->label)) {
+                return $this->technicalPriorResult($rule, $application);
             }
 
             if (! $corpus['has_ocr']) {
                 return $this->ruleResult(
                     $rule,
                     'review',
-                    'No OCR text is available from the verification documents yet. Scan the documents or confirm this rule manually.',
+                    'Step 1 has not produced OCR text for this rule yet.',
                     null,
                     'ocr',
                 );
@@ -156,7 +160,60 @@ class EligibilityAssessmentService
             default => 'All program eligibility rules are met.',
         };
 
-        return $this->payload($status, $summary, $checked, $corpus['sources']);
+        $payload = $this->payload($status, $summary, $checked, $corpus['sources']);
+        $payload['step_one'] = $this->stepOneResults($application);
+
+        return $payload;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function stepOneResults(Application $application): array
+    {
+        return $application->documents->map(function (DocumentSubmission $document) {
+            $ocr = CamData::ocrResult($document->ocrResult);
+
+            return [
+                'id' => $document->id,
+                'requirement_name' => $document->requirement_name,
+                'file_name' => $document->original_name,
+                'verification_label' => $document->verification?->status->label() ?? 'Pending verification',
+                'verification_tone' => $document->verification?->status->tone() ?? 'neutral',
+                'ocr_label' => $ocr['overall_label'] ?? 'Not scanned',
+                'ocr_tone' => $ocr['tone'] ?? 'neutral',
+                'summary' => $ocr['summary'] ?? null,
+                'fields' => $ocr['fields'] ?? [],
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function technicalPriorResult(ProgramEligibilityRule $rule, Application $application): array
+    {
+        $prior = $this->priorAssistance($application);
+        $receivedThisYear = collect($prior)->contains(
+            fn (array $record) => $record['received'] && $record['in_current_academic_year']
+        );
+
+        if ($receivedThisYear) {
+            return $this->ruleResult(
+                $rule,
+                'failed',
+                'Office records show this program was already released to the applicant during the current academic year.',
+                null,
+                'ocr',
+                $prior,
+            );
+        }
+
+        $detail = $prior === []
+            ? 'No other application for this program was found.'
+            : 'Earlier applications exist, and none were released during the current academic year.';
+
+        return $this->ruleResult($rule, 'passed', $detail, null, 'ocr', $prior);
     }
 
     /**

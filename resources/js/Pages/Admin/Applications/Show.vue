@@ -7,7 +7,6 @@ import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import Timeline from '@/Components/Timeline.vue';
 import FileViewerModal from '@/Components/FileViewerModal.vue';
-import OcrReviewModal from '@/Components/OcrReviewModal.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import { useCan } from '@/composables/useCan';
 import { useNotify } from '@/composables/useNotify';
@@ -29,25 +28,15 @@ props.application.documents.forEach((document) => {
 });
 
 const viewerDocument = ref(null);
-const ocrDocumentId = ref(null);
-const ocrDocument = computed(() =>
-    props.application.documents.find((document) => document.id === ocrDocumentId.value) ?? null
-);
-const openViewer = (document, ruleId = null) => {
+const openViewer = (document) => {
     if (! document) {
         return;
     }
     viewerDocument.value = document;
-    if (ruleId) {
-        viewedManualRules[ruleId] = true;
-    }
 };
 const closeViewer = () => {
     viewerDocument.value = null;
 };
-
-const viewedManualRules = reactive({});
-const firstSubmittedDocument = computed(() => props.application.documents?.[0] ?? null);
 
 const requirementRows = computed(() => {
     const requirements = props.application.program_detail?.requirements || [];
@@ -83,62 +72,18 @@ const requirementRows = computed(() => {
     return rows;
 });
 
-const openManualDocuments = (rule) => {
-    if (! firstSubmittedDocument.value) {
-        notify.warning('No documents were submitted.');
-        return;
-    }
-
-    openViewer(firstSubmittedDocument.value, rule.id);
-};
-
-const canMarkRule = (rule) => {
-    if (! canDecideRules.value) {
-        return false;
-    }
-
-    if (rule.check_mode !== 'manual') {
-        return true;
-    }
-
-    return Boolean(viewedManualRules[rule.id] || ruleDecisions[rule.id] || ! firstSubmittedDocument.value);
-};
-
 const eligibilityCheck = computed(() => props.application.eligibility_assessment || null);
 const ruleDecisions = reactive({});
 
-const applyRuleDefaults = (preserveManual = true) => {
-    const saved = props.application.latest_evaluation?.eligibility_checks || [];
-
+const applyRuleDefaults = () => {
     (eligibilityCheck.value?.rules || []).forEach((rule) => {
-        const savedRule = saved.find((item) => item.id === rule.id);
-        if (savedRule && (savedRule.status === 'passed' || savedRule.status === 'failed')) {
-            ruleDecisions[rule.id] = savedRule.status;
-            return;
-        }
-
-        if (preserveManual && rule.check_mode === 'manual' && ruleDecisions[rule.id]) {
-            return;
-        }
-
-        if (rule.check_mode === 'ocr' && (rule.status === 'passed' || rule.status === 'failed')) {
-            ruleDecisions[rule.id] = rule.status;
-            return;
-        }
-
-        if (! ruleDecisions[rule.id]) {
-            ruleDecisions[rule.id] = '';
-        }
+        ruleDecisions[rule.id] = ['passed', 'failed'].includes(rule.status) ? rule.status : 'review';
     });
 };
 
-applyRuleDefaults(false);
+applyRuleDefaults();
 
 const ruleOutcome = (rule) => ruleDecisions[rule.id] || 'review';
-const canDecideRules = computed(() => props.abilities.evaluate && props.application.is_in_evaluation);
-const pendingRules = computed(() =>
-    (eligibilityCheck.value?.rules || []).filter((rule) => !['passed', 'failed'].includes(ruleDecisions[rule.id]))
-);
 
 const combinedEligibility = computed(() => {
     const rules = eligibilityCheck.value?.rules || [];
@@ -182,11 +127,6 @@ const syncEligibilityForm = () => {
     }
 };
 
-const decideRule = (ruleId, status) => {
-    ruleDecisions[ruleId] = status;
-    syncEligibilityForm();
-};
-
 const evaluate = useForm({
     eligibility_passed: props.application.latest_evaluation?.eligibility_passed
         ?? props.application.eligibility_assessment?.eligible === true,
@@ -202,18 +142,11 @@ const evaluate = useForm({
 });
 
 watch(() => props.application.eligibility_assessment, () => {
-    applyRuleDefaults(true);
+    applyRuleDefaults();
     syncEligibilityForm();
 }, { deep: true });
 
 syncEligibilityForm();
-
-const scanEligibility = useForm({});
-const runEligibilityScan = () => {
-    scanEligibility.post(route('admin.applications.scan-eligibility', props.application.id), {
-        preserveScroll: true,
-    });
-};
 
 const evaluationConfirmMessage = computed(() => {
     const number = props.application.application_no;
@@ -279,20 +212,8 @@ const requestCompleteVerification = () => {
 const requestSaveEvaluate = () => {
     syncEligibilityForm();
 
-    const unreadManual = (eligibilityCheck.value?.rules || []).filter((rule) => (
-        rule.check_mode === 'manual'
-        && firstSubmittedDocument.value
-        && ! viewedManualRules[rule.id]
-        && ! ruleDecisions[rule.id]
-    ));
-
-    if (unreadManual.length) {
-        notify.warning('View the submitted documents before marking a manual rule.');
-        return;
-    }
-
-    if (pendingRules.value.length) {
-        notify.warning('Mark every rule as Met or Not met before saving.');
+    if (! String(evaluate.remarks || '').trim()) {
+        notify.warning('Add remarks before sending this application to the next step.');
         return;
     }
 
@@ -326,13 +247,22 @@ const saveDecision = (decision) => {
     decide.decision = decision;
     decide.post(route('admin.applications.decide', props.application.id), { preserveScroll: true });
 };
-const runOcr = (documentId) => {
-    useForm({}).post(route('admin.applications.documents.ocr', [props.application.id, documentId]), {
-        preserveScroll: true,
-    });
-};
-
 const awaitingRevision = (document) => document?.status === 'revision_requested';
+
+const statusTextClass = (tone) => ({
+    success: 'text-gov-success',
+    warning: 'text-[#8a6400]',
+    danger: 'text-gov-danger',
+    info: 'text-gov-blue',
+}[tone] || 'text-gov-muted');
+
+const fieldTextClass = (status) => statusTextClass({
+    matched: 'success',
+    mismatch: 'warning',
+    missing: 'warning',
+    extracted: 'info',
+    manual: 'info',
+}[status] || 'neutral');
 
 const verifyDocument = (documentId, action) => {
     const document = props.application.documents.find((item) => item.id === documentId);
@@ -548,84 +478,88 @@ const showDetails = ref(false);
                         <span class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gov-blue text-[10px] font-bold text-white">1</span>
                         Step 1: Requirements &amp; Verification
                     </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Document</th>
-                                <th>Upload date</th>
-                                <th>Verification status</th>
-                                <th>Verified by</th>
-                                <th>Verification date</th>
-                                <th>OCR result</th>
-                                <th>Remarks</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="document in application.documents" :key="document.id">
-                                <td data-label="Document">
-                                    {{ document.requirement_name }}<br>
+                    <div class="divide-y divide-gov-border">
+                        <article v-for="document in application.documents" :key="document.id" class="grid gap-4 p-4 lg:grid-cols-[11rem_minmax(0,1fr)_minmax(16rem,22rem)]">
+                            <button class="cursor-pointer border border-gov-border bg-gov-off" type="button" @click="openViewer(document)">
+                                <img
+                                    v-if="document.is_image"
+                                    :src="route('admin.applications.documents.preview', [application.id, document.id], false)"
+                                    :alt="document.requirement_name"
+                                    class="h-36 w-full object-contain"
+                                >
+                                <span v-else class="flex h-36 items-center justify-center px-3 text-center text-xs font-semibold text-gov-blue">Open file</span>
+                            </button>
+                            <div class="min-w-0 text-sm">
+                                <p class="font-semibold text-gov-dark">{{ document.requirement_name }}</p>
+                                <button class="mt-1 cursor-pointer text-left text-gov-blue underline" type="button" @click="openViewer(document)">{{ document.original_name }}</button>
+                                <dl class="mt-3 grid gap-2 sm:grid-cols-2">
+                                    <div>
+                                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">Uploaded</dt>
+                                        <dd>{{ document.uploaded_at || '—' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">Status</dt>
+                                        <dd><span class="text-xs font-bold uppercase tracking-wide" :class="statusTextClass(document.status_tone)">{{ document.status_label }}</span></dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">Verified by</dt>
+                                        <dd>{{ document.verified_by || '—' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">Verification date</dt>
+                                        <dd>{{ document.verified_at || '—' }}</dd>
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">Remarks</dt>
+                                        <dd>{{ document.remarks || '—' }}</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                            <div class="border border-gov-border bg-gov-off p-3 text-sm">
+                                <p class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">OCR result</p>
+                                <p v-if="document.ocr" class="mt-2">
+                                    <span class="text-xs font-bold uppercase tracking-wide" :class="statusTextClass(document.ocr.tone)">{{ document.ocr.overall_label }}</span>
+                                </p>
+                                <p v-else class="mt-2 text-xs text-gov-muted">Waiting for the automatic scan.</p>
+                                <p v-if="document.ocr?.summary" class="mt-2 text-xs text-gov-dark">{{ document.ocr.summary }}</p>
+                                <p v-if="document.ocr?.error_message" class="mt-2 text-xs text-gov-danger">{{ document.ocr.error_message }}</p>
+                                <ul v-if="document.ocr?.fields?.length" class="mt-3 space-y-2">
+                                    <li v-for="field in document.ocr.fields" :key="field.id" class="border border-gov-border bg-white px-2 py-1.5">
+                                        <span class="flex items-center justify-between gap-2">
+                                            <span class="font-semibold">{{ field.label }}</span>
+                                            <span class="text-xs font-bold uppercase tracking-wide" :class="fieldTextClass(field.match_status)">{{ field.match_status.replaceAll('_', ' ') }}</span>
+                                        </span>
+                                        <span class="mt-1 block text-xs text-gov-muted">Read: {{ field.display_value || field.extracted_value || '—' }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div v-if="abilities.verify && application.is_in_verification" class="space-y-2 lg:col-span-3">
+                                <textarea v-model="remarks[document.id]" rows="2" placeholder="Remarks (required to reject or request revision)" />
+                                <div class="flex flex-wrap gap-1">
                                     <button
-                                        class="text-left text-gov-blue underline"
+                                        class="btn-success btn-sm cursor-pointer"
                                         type="button"
-                                        @click="openViewer(document)"
-                                    >{{ document.original_name }}</button>
-                                    <button
-                                        v-if="document.is_image"
-                                        class="mt-2 block max-w-sm"
-                                        type="button"
-                                        @click="openViewer(document)"
+                                        :disabled="awaitingRevision(document)"
+                                        @click="verifyDocument(document.id, 'verify')"
                                     >
-                                        <img
-                                            :src="route('admin.applications.documents.preview', [application.id, document.id], false)"
-                                            :alt="document.requirement_name"
-                                            class="max-h-40 w-full border border-gov-border bg-gov-off object-contain"
-                                        >
+                                        Verify
                                     </button>
-                                </td>
-                                <td data-label="Uploaded">{{ document.uploaded_at }}</td>
-                                <td data-label="Status"><span class="badge" :class="`badge-${document.status_tone}`">{{ document.status_label }}</span></td>
-                                <td data-label="Verifier">{{ document.verified_by || '—' }}</td>
-                                <td data-label="Verified">{{ document.verified_at }}</td>
-                                <td data-label="OCR">
-                                    <div class="space-y-1">
-                                        <span v-if="document.ocr" class="badge" :class="`badge-${document.ocr.tone}`">{{ document.ocr.overall_label }}</span>
-                                        <span v-else class="text-xs text-gov-muted">Not scanned</span>
-                                        <button class="block text-left text-xs text-gov-blue underline" type="button" @click="ocrDocumentId = document.id">View OCR</button>
-                                    </div>
-                                </td>
-                                <td data-label="Remarks">{{ document.remarks || '—' }}</td>
-                                <td data-label="Action">
-                                    <div v-if="abilities.verify && application.is_in_verification" class="space-y-2">
-                                        <textarea v-model="remarks[document.id]" rows="2" placeholder="Remarks (required to reject or request revision)" />
-                                        <div class="flex flex-wrap gap-1">
-                                            <button
-                                                class="btn-success btn-sm"
-                                                type="button"
-                                                :disabled="awaitingRevision(document)"
-                                                :title="awaitingRevision(document) ? 'Waiting for the applicant to replace this file' : ''"
-                                                @click="verifyDocument(document.id, 'verify')"
-                                            >
-                                                Verify
-                                            </button>
-                                            <button class="btn-danger btn-sm" type="button" @click="verifyDocument(document.id, 'reject')">Reject document</button>
-                                            <button
-                                                class="btn-warning btn-sm"
-                                                type="button"
-                                                :disabled="awaitingRevision(document)"
-                                                @click="verifyDocument(document.id, 'revision')"
-                                            >
-                                                Request revision
-                                            </button>
-                                        </div>
-                                        <p v-if="awaitingRevision(document)" class="text-xs text-gov-warning">Waiting for a replacement upload.</p>
-                                    </div>
-                                    <span v-else-if="abilities.verify" class="text-xs italic text-gov-muted">Verification for this application is closed.</span>
-                                    <span v-else class="text-xs italic text-gov-muted">Not assigned to this step</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <button class="btn-danger btn-sm cursor-pointer" type="button" @click="verifyDocument(document.id, 'reject')">Reject document</button>
+                                    <button
+                                        class="btn-warning btn-sm cursor-pointer"
+                                        type="button"
+                                        :disabled="awaitingRevision(document)"
+                                        @click="verifyDocument(document.id, 'revision')"
+                                    >
+                                        Request revision
+                                    </button>
+                                </div>
+                                <p v-if="awaitingRevision(document)" class="text-xs text-gov-warning">Waiting for a replacement upload.</p>
+                            </div>
+                            <p v-else-if="abilities.verify" class="text-xs italic text-gov-muted lg:col-span-3">Verification for this application is closed.</p>
+                            <p v-else class="text-xs italic text-gov-muted lg:col-span-3">Not assigned to this step.</p>
+                        </article>
+                    </div>
                     <div v-if="abilities.verify && application.is_in_verification" class="border-t border-gov-border px-4 py-3">
                         <p v-if="application.status === 'for_revision'" class="mb-3 text-sm text-gov-warning">
                             A document was sent back for revision. You can keep verifying the other files while the applicant uploads a replacement.
@@ -671,8 +605,8 @@ const showDetails = ref(false);
                                 </td>
                                 <td data-label="Submitted">{{ row.document?.original_name || 'Not submitted' }}</td>
                                 <td data-label="Status">
-                                    <span v-if="row.document" class="badge" :class="`badge-${row.document.status_tone}`">{{ row.document.status_label }}</span>
-                                    <span v-else class="badge badge-danger">Missing</span>
+                                    <span v-if="row.document" class="text-xs font-bold uppercase tracking-wide" :class="statusTextClass(row.document.status_tone)">{{ row.document.status_label }}</span>
+                                    <span v-else class="text-xs font-bold uppercase tracking-wide text-gov-danger">Missing</span>
                                 </td>
                                 <td data-label="">
                                     <button
@@ -688,79 +622,75 @@ const showDetails = ref(false);
                         </tbody>
                     </table>
 
+                    <div class="border-t border-gov-border">
+                        <div class="px-4 py-3">
+                            <p class="text-xs font-bold uppercase tracking-wide text-gov-muted">Validation from Step 1</p>
+                            <p class="mt-1 text-sm text-gov-muted">Each result below comes from the documents verified in Step 1.</p>
+                        </div>
+                        <div v-if="!eligibilityCheck?.step_one?.length" class="px-4 pb-3 text-sm text-gov-muted">No Step 1 document results yet.</div>
+                        <article v-for="item in eligibilityCheck?.step_one || []" :key="item.id" class="border-t border-gov-border px-4 py-3">
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                    <p class="font-semibold text-gov-dark">{{ item.requirement_name }}</p>
+                                    <p class="text-xs text-gov-muted">{{ item.file_name }}</p>
+                                </div>
+                                <div class="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-wide">
+                                    <span :class="statusTextClass(item.verification_tone)">{{ item.verification_label }}</span>
+                                    <span :class="statusTextClass(item.ocr_tone)">{{ item.ocr_label }}</span>
+                                </div>
+                            </div>
+                            <p v-if="item.summary" class="mt-2 text-xs text-gov-dark">{{ item.summary }}</p>
+                            <ul v-if="item.fields?.length" class="mt-2 grid gap-2 sm:grid-cols-2">
+                                <li v-for="field in item.fields" :key="field.id" class="border border-gov-border bg-gov-off px-2 py-1.5 text-xs">
+                                    <span class="flex items-center justify-between gap-2">
+                                        <span class="font-semibold">{{ field.label }}</span>
+                                        <span class="font-bold uppercase tracking-wide" :class="fieldTextClass(field.match_status)">{{ field.match_status.replaceAll('_', ' ') }}</span>
+                                    </span>
+                                    <span class="mt-1 block text-gov-muted">Read: {{ field.display_value || field.extracted_value || '—' }}</span>
+                                </li>
+                            </ul>
+                        </article>
+                    </div>
+
                     <table v-if="eligibilityCheck?.rules?.length" class="data-table">
                         <thead>
                             <tr>
                                 <th>Rule</th>
-                                <th>Check</th>
                                 <th>Result</th>
-                                <th></th>
+                                <th>How it was checked</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="rule in eligibilityCheck.rules" :key="rule.id">
                                 <td data-label="Rule">
                                     {{ rule.label }}
-                                    <p v-if="rule.check_mode === 'ocr' && rule.evidence" class="text-xs text-gov-muted">{{ rule.evidence }}</p>
+                                    <p v-if="rule.detail" class="text-xs text-gov-muted">{{ rule.detail }}</p>
+                                    <p v-if="rule.evidence" class="text-xs text-gov-muted">{{ rule.evidence }}</p>
                                     <p v-if="rule.prior_records?.length" class="text-xs text-gov-muted">
                                         Prior: {{ rule.prior_records.map((record) => `${record.application_no} (${record.status_label})`).join(', ') }}
                                     </p>
-                                    <p v-else-if="rule.shows_prior_records" class="text-xs text-gov-muted">No prior application found.</p>
                                 </td>
-                                <td data-label="Check">{{ rule.check_mode === 'manual' ? 'Manual' : 'OCR' }}</td>
                                 <td data-label="Result">
-                                    <span class="badge" :class="{
-                                        'badge-success': ruleOutcome(rule) === 'passed',
-                                        'badge-danger': ruleOutcome(rule) === 'failed',
-                                        'badge-warning': ruleOutcome(rule) === 'review',
-                                    }">{{ ruleOutcome(rule) === 'passed' ? 'Met' : (ruleOutcome(rule) === 'failed' ? 'Not met' : 'Pending') }}</span>
+                                    <span class="text-xs font-bold uppercase tracking-wide" :class="statusTextClass(ruleOutcome(rule) === 'passed' ? 'success' : (ruleOutcome(rule) === 'failed' ? 'danger' : 'warning'))">{{ ruleOutcome(rule) === 'passed' ? 'Met' : (ruleOutcome(rule) === 'failed' ? 'Not met' : 'Pending') }}</span>
                                 </td>
-                                <td data-label="">
-                                    <div class="flex flex-wrap gap-1">
-                                        <button
-                                            v-if="rule.check_mode === 'manual'"
-                                            class="btn-secondary btn-sm"
-                                            type="button"
-                                            @click="openManualDocuments(rule)"
-                                        >
-                                            View documents
-                                        </button>
-                                        <template v-if="canDecideRules">
-                                            <button
-                                                class="btn-success btn-sm"
-                                                type="button"
-                                                :disabled="!canMarkRule(rule)"
-                                                :title="canMarkRule(rule) ? '' : 'View documents first'"
-                                                @click="decideRule(rule.id, 'passed')"
-                                            >
-                                                Met
-                                            </button>
-                                            <button
-                                                class="btn-danger btn-sm"
-                                                type="button"
-                                                :disabled="!canMarkRule(rule)"
-                                                :title="canMarkRule(rule) ? '' : 'View documents first'"
-                                                @click="decideRule(rule.id, 'failed')"
-                                            >
-                                                Not met
-                                            </button>
-                                        </template>
-                                    </div>
-                                </td>
+                                <td data-label="Check">Step 1 document results</td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <div v-if="combinedEligibility" class="flex flex-wrap items-center justify-between gap-2 border-t border-gov-border px-4 py-3 text-sm">
-                        <span class="badge" :class="`badge-${combinedEligibility.tone}`">{{ combinedEligibility.status_label }}</span>
+                    <div v-if="combinedEligibility" class="flex flex-wrap items-center justify-between gap-3 border-t border-gov-border px-4 py-3 text-sm">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wide" :class="statusTextClass(combinedEligibility.tone)">{{ combinedEligibility.status_label }}</span>
+                            <p class="mt-2 text-gov-muted">{{ combinedEligibility.summary }}</p>
+                        </div>
                         <button
-                            v-if="abilities.evaluate"
-                            class="btn-ghost btn-sm"
+                            v-if="abilities.evaluate && application.is_in_evaluation"
+                            class="btn-primary cursor-pointer"
                             type="button"
-                            :disabled="scanEligibility.processing"
-                            @click="runEligibilityScan"
+                            :disabled="evaluate.processing"
+                            @click="requestSaveEvaluate"
                         >
-                            {{ scanEligibility.processing ? 'Scanning…' : 'Scan documents' }}
+                            Send to next step
                         </button>
                     </div>
 
@@ -770,9 +700,10 @@ const showDetails = ref(false);
                     </dl>
 
                     <form v-if="abilities.evaluate && application.is_in_evaluation" class="grid gap-3 border-t border-gov-border p-4 md:grid-cols-2" @submit.prevent="requestSaveEvaluate">
-                        <label class="flex items-center gap-2 text-sm font-normal normal-case tracking-normal">
-                            <input v-model="evaluate.eligibility_passed" type="checkbox"> Eligible
-                        </label>
+                        <p class="flex items-center text-sm">
+                            Eligibility is taken from the Step 1 validation:
+                            <span class="ml-2 text-xs font-bold uppercase tracking-wide" :class="statusTextClass(combinedEligibility?.tone)">{{ combinedEligibility?.status_label || 'Pending' }}</span>
+                        </p>
                         <label class="flex items-center gap-2 text-sm font-normal normal-case tracking-normal">
                             <input v-model="evaluate.documents_complete" type="checkbox"> Documents complete
                         </label>
@@ -788,8 +719,8 @@ const showDetails = ref(false);
                         <div><label>Amount</label><input v-model="evaluate.recommended_amount" type="number" step="0.01"></div>
                         <div class="md:col-span-2"><label>Remarks</label><textarea v-model="evaluate.remarks" rows="2" required /></div>
                         <div class="md:col-span-2">
-                            <button class="btn-primary" type="submit" :disabled="evaluate.processing">
-                                {{ evaluate.recommendation === 'revision' ? 'Save and return for revision' : 'Save and send to approval' }}
+                            <button class="btn-primary cursor-pointer" type="submit" :disabled="evaluate.processing">
+                                {{ evaluate.recommendation === 'revision' ? 'Send back for revision' : 'Send to next step' }}
                             </button>
                         </div>
                     </form>
@@ -862,17 +793,6 @@ const showDetails = ref(false);
                 </div>
             </aside>
         </div>
-
-        <OcrReviewModal
-            :show="Boolean(ocrDocument)"
-            :application-id="application.id"
-            :document="ocrDocument"
-            :can-verify="abilities.verify && application.is_in_verification"
-            @close="ocrDocumentId = null"
-            @verify="verifyDocument(ocrDocument.id, 'verify')"
-            @revision="(note) => { remarks[ocrDocument.id] = note; verifyDocument(ocrDocument.id, 'revision'); }"
-            @rerun="runOcr(ocrDocument.id)"
-        />
 
         <FileViewerModal
             :show="Boolean(viewerDocument)"
