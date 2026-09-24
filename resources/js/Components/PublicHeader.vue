@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 import Seal from '@/Components/Seal.vue';
 
 const page = usePage();
@@ -10,6 +11,15 @@ const auth = computed(() => page.props.auth?.user);
 const clock = computed(() => page.props.clock);
 const logout = useForm({});
 const menuOpen = ref(false);
+const confirmSignOut = ref(false);
+const askSignOut = () => {
+    menuOpen.value = false;
+    confirmSignOut.value = true;
+};
+const cancelSignOut = () => {
+    if (logout.processing) return;
+    confirmSignOut.value = false;
+};
 
 const nav = [
     ['Home', 'site.home'],
@@ -62,7 +72,7 @@ watch(() => page.url, () => {
                     <template v-if="auth">
                         <Link v-if="auth.can_access_admin" :href="route('admin.dashboard')" class="btn-secondary btn-sm">Dashboard</Link>
                         <Link v-else-if="auth.is_applicant" :href="route('applicant.dashboard')" class="btn-secondary btn-sm">Applicant Portal</Link>
-                        <button class="btn-ghost btn-sm" type="button" @click="signOut">Sign out</button>
+                        <button class="btn-ghost btn-sm" type="button" @click="askSignOut">Sign out</button>
                     </template>
                     <template v-else>
                         <Link
@@ -107,7 +117,7 @@ watch(() => page.url, () => {
                 <template v-if="auth">
                     <Link v-if="auth.can_access_admin" :href="route('admin.dashboard')" class="btn-secondary btn-sm w-full sm:w-auto">Dashboard</Link>
                     <Link v-else-if="auth.is_applicant" :href="route('applicant.dashboard')" class="btn-secondary btn-sm w-full sm:w-auto">Applicant Portal</Link>
-                    <button class="btn-ghost btn-sm w-full sm:w-auto" type="button" @click="signOut">Sign out</button>
+                    <button class="btn-ghost btn-sm w-full sm:w-auto" type="button" @click="askSignOut">Sign out</button>
                 </template>
                 <template v-else>
                     <Link :href="route('login')" class="btn-primary btn-sm w-full sm:w-auto">Sign in</Link>
@@ -115,4 +125,14 @@ watch(() => page.url, () => {
             </div>
         </div>
     </header>
+    <ConfirmModal
+        :show="confirmSignOut"
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirm-label="Yes, sign out"
+        cancel-label="Stay signed in"
+        :processing="logout.processing"
+        @confirm="signOut"
+        @cancel="cancelSignOut"
+    />
 </template>

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 import SidebarBrand from '@/Components/SidebarBrand.vue';
 import SidebarFooter from '@/Components/SidebarFooter.vue';
 import SidebarNavLink from '@/Components/SidebarNavLink.vue';
@@ -37,6 +38,14 @@ const gov = computed(() => page.props.gov);
 const clock = computed(() => page.props.clock);
 const { can, user } = useCan();
 const logout = useForm({});
+const confirmSignOut = ref(false);
+const askSignOut = () => {
+    confirmSignOut.value = true;
+};
+const cancelSignOut = () => {
+    if (logout.processing) return;
+    confirmSignOut.value = false;
+};
 const signOut = () => logout.post(route('logout'));
 const { collapsed: sidebarCollapsed, toggle: toggleDesktopSidebar } = useSidebarCollapse('admin-sidebar-collapsed');
 const mobileOpen = ref(false);
@@ -264,7 +273,7 @@ const navGroups = computed(() => {
                                 <p class="truncate text-xs uppercase tracking-wide text-gov-muted">{{ user?.role_name }}</p>
                             </div>
                             <Link :href="route('site.home')" class="btn-ghost btn-sm">Public site</Link>
-                            <button class="btn-primary btn-sm" type="button" @click="signOut">Sign out</button>
+                            <button class="btn-primary btn-sm" type="button" @click="askSignOut">Sign out</button>
                         </div>
                     </div>
                     <nav v-if="!mobileOpen" class="flex gap-2 overflow-x-auto border-t border-gov-border px-2 py-2 text-xs lg:hidden">
@@ -280,5 +289,15 @@ const navGroups = computed(() => {
                 </main>
             </div>
         </div>
+        <ConfirmModal
+            :show="confirmSignOut"
+            title="Sign out"
+            message="Are you sure you want to sign out?"
+            confirm-label="Yes, sign out"
+            cancel-label="Stay signed in"
+            :processing="logout.processing"
+            @confirm="signOut"
+            @cancel="cancelSignOut"
+        />
     </div>
 </template>

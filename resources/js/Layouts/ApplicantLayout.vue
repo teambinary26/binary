@@ -1,7 +1,8 @@
 <script setup>
-import { computed, h } from 'vue';
+import { computed, h, ref } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 import Toaster from '@/Components/Toaster.vue';
 import SidebarBrand from '@/Components/SidebarBrand.vue';
 import SidebarFooter from '@/Components/SidebarFooter.vue';
@@ -13,6 +14,14 @@ const gov = computed(() => page.props.gov);
 const user = computed(() => page.props.auth?.user);
 const unread = computed(() => page.props.unreadNotificationCount ?? 0);
 const logout = useForm({});
+const confirmSignOut = ref(false);
+const askSignOut = () => {
+    confirmSignOut.value = true;
+};
+const cancelSignOut = () => {
+    if (logout.processing) return;
+    confirmSignOut.value = false;
+};
 const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapse('applicant-sidebar-collapsed');
 
 const NavIcon = (props) => h(
@@ -160,7 +169,7 @@ const signOut = () => logout.post(route('logout'));
                                 Notifications
                                 <span v-if="unread > 0" class="ml-1 bg-gov-danger px-1.5 py-0.5 text-[10px] font-bold text-white">{{ unread }}</span>
                             </Link>
-                            <button class="btn-primary btn-sm whitespace-nowrap" type="button" @click="signOut">Sign out</button>
+                            <button class="btn-primary btn-sm whitespace-nowrap" type="button" @click="askSignOut">Sign out</button>
                         </div>
                     </div>
                 </header>
@@ -190,5 +199,15 @@ const signOut = () => logout.post(route('logout'));
                 </main>
             </div>
         </div>
+        <ConfirmModal
+            :show="confirmSignOut"
+            title="Sign out"
+            message="Are you sure you want to sign out?"
+            confirm-label="Yes, sign out"
+            cancel-label="Stay signed in"
+            :processing="logout.processing"
+            @confirm="signOut"
+            @cancel="cancelSignOut"
+        />
     </div>
 </template>
