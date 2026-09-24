@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -25,7 +25,26 @@ const filter = useForm({
     barangay: props.filters.barangay || '',
 });
 
-const applyFilters = () => filter.get(route('admin.releases.released'), { preserveState: true, preserveScroll: true });
+let searchTimer = null;
+
+const applyFilters = () => filter.get(route('admin.releases.released'), {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+});
+
+watch(
+    () => [filter.q, filter.program, filter.date_from, filter.date_to, filter.barangay],
+    (values, previous) => {
+        clearTimeout(searchTimer);
+        const searchChanged = values[0] !== previous?.[0];
+        if (searchChanged && values[0]) {
+            searchTimer = setTimeout(applyFilters, 300);
+            return;
+        }
+        applyFilters();
+    },
+);
 
 const clearFilters = () => {
     filter.q = '';
@@ -33,7 +52,6 @@ const clearFilters = () => {
     filter.date_from = '';
     filter.date_to = '';
     filter.barangay = '';
-    applyFilters();
 };
 
 const exportHref = (format) => {
@@ -59,7 +77,7 @@ const exportHref = (format) => {
         </PageHeader>
 
         <form class="panel mb-4" @submit.prevent="applyFilters">
-            <div class="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-6">
+            <div class="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
                 <div>
                     <label>Search</label>
                     <input v-model="filter.q" placeholder="Name, application, reference, or code">
@@ -86,9 +104,8 @@ const exportHref = (format) => {
                         <option v-for="barangay in barangays" :key="barangay" :value="barangay">{{ barangay }}</option>
                     </select>
                 </div>
-                <div class="flex items-end gap-2">
-                    <button class="btn-primary w-full" type="submit">Filter</button>
-                    <button class="btn-ghost w-full" type="button" @click="clearFilters">Clear</button>
+                <div class="flex items-end md:col-span-2 xl:col-span-5">
+                    <button class="btn-ghost" type="button" @click="clearFilters">Clear</button>
                 </div>
             </div>
         </form>

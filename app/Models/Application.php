@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ApplicationStatus;
+use App\Support\IdRequirements;
 use App\Enums\DocumentVerificationStatus;
 use App\Enums\WorkflowStep;
 use Illuminate\Database\Eloquent\Builder;
@@ -126,6 +127,18 @@ class Application extends Model
             && $this->documentsNeedingAction()->isNotEmpty();
     }
 
+    public function canSupplyMissingDocuments(): bool
+    {
+        if ($this->canBeEditedByApplicant()) {
+            return true;
+        }
+
+        return in_array($this->status, [
+            ApplicationStatus::Submitted,
+            ApplicationStatus::UnderVerification,
+        ], true) && $this->missingRequiredRequirements()->isNotEmpty();
+    }
+
     public function answerMap(): array
     {
         return $this->answers->mapWithKeys(fn (ApplicationAnswer $answer) => [
@@ -163,9 +176,17 @@ class Application extends Model
         return $this->current_step < 3 && $this->answers->isEmpty();
     }
 
-    public function documentForRequirement(int $requirementId): ?DocumentSubmission
+    public function documentForRequirement(int $requirementId, string $side = 'front'): ?DocumentSubmission
     {
-        return $this->documents->firstWhere('program_requirement_id', $requirementId);
+        return $this->documents->first(function (DocumentSubmission $document) use ($requirementId, $side) {
+            if ((int) $document->program_requirement_id !== $requirementId) {
+                return false;
+            }
+
+            $documentSide = $document->side ?: 'front';
+
+            return $documentSide === $side;
+        });
     }
 
     public function missingRequiredRequirements(): \Illuminate\Support\Collection
@@ -176,10 +197,19 @@ class Application extends Model
             return collect();
         }
 
-        $uploaded = $this->documents->pluck('program_requirement_id')->filter();
-
         return $this->program->requirements
-            ->filter(fn ($requirement) => $requirement->is_required && ! $uploaded->contains($requirement->id))
+            ->filter(function ($requirement) {
+                if (! $requirement->is_required) {
+                    return false;
+                }
+
+                if (! $this->documentForRequirement($requirement->id)) {
+                    return true;
+                }
+
+                return IdRequirements::requiresBack($requirement->name)
+                    && ! $this->documentForRequirement($requirement->id, 'back');
+            })
             ->values();
     }
 
@@ -227,9 +257,13 @@ class Application extends Model
         }
 
         foreach ($required as $requirement) {
-            $document = $this->documentForRequirement($requirement->id);
-            if (! $document || $document->verification?->status !== DocumentVerificationStatus::Verified) {
-                return false;
+            $sides = IdRequirements::requiresBack($requirement->name) ? ['front', 'back'] : ['front'];
+
+            foreach ($sides as $side) {
+                $document = $this->documentForRequirement($requirement->id, $side);
+                if (! $document || $document->verification?->status !== DocumentVerificationStatus::Verified) {
+                    return false;
+                }
             }
         }
 

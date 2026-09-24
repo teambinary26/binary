@@ -7,6 +7,7 @@ use App\Models\AssistanceRelease;
 use App\Models\ReleaseSchedule;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -31,6 +32,39 @@ test('release schedule page lists approved applicants separately from scheduled 
             ->has('schedules.data')
             ->where('approved.data', fn ($rows) => collect($rows)->every(fn ($row) => $row['status'] === ApplicationStatus::Approved->value))
             ->where('forRelease', fn ($rows) => collect($rows)->every(fn ($row) => $row['status'] === ApplicationStatus::ScheduledForRelease->value))
+        );
+});
+
+test('record release page searches a scheduled applicant and shows the program', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $application = Application::query()
+        ->where('status', ApplicationStatus::ScheduledForRelease)
+        ->with(['applicant', 'program'])
+        ->first();
+
+    if (! $application) {
+        $application = Application::query()->where('status', ApplicationStatus::Approved)->with(['applicant', 'program'])->firstOrFail();
+        $application->update(['status' => ApplicationStatus::ScheduledForRelease]);
+    }
+
+    $this->actingAs($admin)
+        ->get(route('admin.releases.record.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Releases/Record')
+            ->where('searched', false)
+            ->has('matches', 0)
+        );
+
+    $this->actingAs($admin)
+        ->get(route('admin.releases.record.create', ['q' => $application->applicant->full_name]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('searched', true)
+            ->where('matches', fn ($rows) => collect($rows)->contains(fn ($row) => $row['id'] === $application->id
+                && $row['program']['name'] === $application->program->name
+                && collect($row['details'])->isNotEmpty()
+            ))
         );
 });
 
@@ -225,6 +259,44 @@ test('a scheduled release can be rescheduled and emails the applicant', function
             && $mail->rescheduled
             && $mail->schedule->is($schedule);
     });
+});
+
+test('scheduling and rescheduling text the applicant through semaphore', function () {
+    Mail::fake();
+    Http::fake(['https://api.semaphore.co/*' => Http::response([['status' => 'Pending']], 200)]);
+    config(['services.semaphore.key' => 'test-semaphore-key']);
+
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $application = Application::query()
+        ->where('status', ApplicationStatus::Approved)
+        ->with('applicant')
+        ->firstOrFail();
+    $application->applicant->update(['contact_number' => '09171234567']);
+
+    $this->actingAs($admin)
+        ->post(route('admin.releases.schedule'), [
+            'application_id' => $application->id,
+            'release_date' => now()->addDays(4)->toDateString(),
+            'release_location' => 'MSWDO Window 2',
+            'release_method' => 'cash',
+        ])
+        ->assertRedirect();
+
+    $schedule = ReleaseSchedule::query()->where('application_id', $application->id)->latest('id')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->put(route('admin.releases.reschedule', $schedule), [
+            'release_date' => now()->addDays(6)->toDateString(),
+            'release_location' => 'Municipal Hall',
+            'release_method' => 'cash',
+        ])
+        ->assertRedirect();
+
+    Http::assertSentCount(2);
+    Http::assertSent(fn ($request) => $request['number'] === '639171234567'
+        && str_contains($request['message'], $application->application_no)
+        && str_contains($request['message'], 'scheduled'));
+    Http::assertSent(fn ($request) => str_contains($request['message'], 'moved'));
 });
 
 test('a completed release cannot be rescheduled', function () {

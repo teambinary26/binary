@@ -129,7 +129,7 @@ class ApplicationController extends Controller
     {
         $this->authorize('view', $application);
 
-        if (! $application->canBeEditedByApplicant()) {
+        if (! $application->canSupplyMissingDocuments()) {
             return redirect()->route('applicant.applications.show', $application);
         }
 
@@ -142,9 +142,14 @@ class ApplicationController extends Controller
 
     public function storeDocument(Request $request, Application $application): RedirectResponse
     {
-        $this->authorize('update', $application);
+        $this->authorize('view', $application);
+        abort_unless(
+            $request->user()->can('update', $application) || $application->canSupplyMissingDocuments(),
+            403,
+        );
         $data = $request->validate([
             'requirement_id' => ['required', 'integer'],
+            'side' => ['nullable', 'in:front,back'],
             'file' => ['required', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png'],
         ]);
 
@@ -152,7 +157,8 @@ class ApplicationController extends Controller
             $application,
             (int) $data['requirement_id'],
             $request->file('file'),
-            $request->user()
+            $request->user(),
+            $data['side'] ?? 'front',
         );
 
         $application->refresh();

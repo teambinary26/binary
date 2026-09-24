@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -27,7 +27,16 @@ const form = useForm({
     beneficiary: props.filters.beneficiary || '',
 });
 
-const submit = () => form.get(route('admin.reports.applications'), { preserveState: true });
+const applyFilters = () => form.get(route('admin.reports.applications'), {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+});
+
+watch(
+    () => [form.date_from, form.date_to, form.program, form.status, form.barangay, form.beneficiary],
+    () => applyFilters(),
+);
 
 const exportHref = (format) => {
     const url = new URL(route('admin.reports.applications'), window.location.origin);
@@ -50,7 +59,7 @@ const exportHref = (format) => {
                 <a class="btn-secondary btn-sm" :href="exportHref('pdf')">Export PDF</a>
             </template>
         </PageHeader>
-        <form class="panel mb-4 no-print" @submit.prevent="submit">
+        <form class="panel mb-4 no-print" @submit.prevent="applyFilters">
             <div class="grid gap-3 p-4 md:grid-cols-3 lg:grid-cols-6">
                 <div><label>Date from</label><input v-model="form.date_from" type="date"></div>
                 <div><label>Date to</label><input v-model="form.date_to" type="date"></div>
@@ -84,7 +93,6 @@ const exportHref = (format) => {
                     </select>
                 </div>
             </div>
-            <div class="px-4 pb-4"><button class="btn-primary" type="submit">Apply filters</button></div>
         </form>
         <p class="mb-2 text-xs text-gov-muted">{{ gov.agency }} · Generated {{ generated_at }} · {{ applications.total }} record(s)</p>
         <table class="data-table">

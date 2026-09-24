@@ -15,6 +15,7 @@ use App\Models\ProgramFormField;
 use App\Models\User;
 use App\Models\WorkflowStaff;
 use App\Support\DocumentFiles;
+use App\Support\IdRequirements;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -152,6 +153,7 @@ class ApplicationService
         int $requirementId,
         UploadedFile $file,
         User $user,
+        ?string $side = null,
     ): DocumentSubmission {
         $requirement = $application->program->requirements->firstWhere('id', $requirementId);
 
@@ -161,7 +163,16 @@ class ApplicationService
             ]);
         }
 
-        $existing = $application->documentForRequirement($requirementId);
+        $side = $side === 'back' ? 'back' : 'front';
+
+        if ($side === 'back' && ! IdRequirements::requiresBack($requirement->name)) {
+            throw ValidationException::withMessages([
+                'document' => 'This requirement does not need a back side.',
+            ]);
+        }
+
+        $application->loadMissing('documents');
+        $existing = $application->documentForRequirement($requirementId, $side);
         if ($existing) {
             DocumentFiles::delete($existing->file_path);
             $existing->verification()?->delete();
@@ -173,7 +184,8 @@ class ApplicationService
         $document = DocumentSubmission::query()->create([
             'application_id' => $application->id,
             'program_requirement_id' => $requirement->id,
-            'requirement_name' => $requirement->name,
+            'requirement_name' => $side === 'back' ? $requirement->name.' (back)' : $requirement->name,
+            'side' => $side,
             'file_path' => $path,
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getClientMimeType(),
@@ -399,8 +411,18 @@ class ApplicationService
 
         $missing = [];
         foreach ($application->program->requirements as $requirement) {
-            if ($requirement->is_required && ! $application->documentForRequirement($requirement->id)) {
-                $missing[] = $requirement->name;
+            if (! $requirement->is_required) {
+                continue;
+            }
+
+            $needsBack = IdRequirements::requiresBack($requirement->name);
+
+            if (! $application->documentForRequirement($requirement->id)) {
+                $missing[] = $needsBack ? $requirement->name.' (front)' : $requirement->name;
+            }
+
+            if ($needsBack && ! $application->documentForRequirement($requirement->id, 'back')) {
+                $missing[] = $requirement->name.' (back)';
             }
         }
 

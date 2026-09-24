@@ -1,4 +1,5 @@
 <script setup>
+import { watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
@@ -14,7 +15,22 @@ const form = useForm({
     application_no: props.filters.application_no || '',
 });
 
-const submit = () => form.get(route('site.status', undefined, false));
+let searchTimer = null;
+
+const submit = () => form.get(route('site.status', undefined, false), {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+});
+
+watch(() => form.application_no, (value) => {
+    clearTimeout(searchTimer);
+    if (! value.trim()) {
+        submit();
+        return;
+    }
+    searchTimer = setTimeout(submit, 300);
+});
 </script>
 
 <template>
@@ -31,9 +47,8 @@ const submit = () => form.get(route('site.status', undefined, false));
                 <div class="panel-h">Public status inquiry</div>
                 <div class="p-4">
                     <label for="application_no">Application number</label>
-                    <input id="application_no" v-model="form.application_no" placeholder="CAMS-2026-000001" required>
+                    <input id="application_no" v-model="form.application_no" placeholder="CAMS-2026-000001">
                 </div>
-                <div class="px-4 pb-4"><button class="btn-primary w-full sm:w-auto" type="submit">Check status</button></div>
             </form>
 
             <div v-if="searched && !application" class="flash flash-warning">No matching application was found. Verify the application number.</div>

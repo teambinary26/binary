@@ -19,7 +19,6 @@ const props = defineProps({
 
 const methodEntries = computed(() => Object.entries(props.methods));
 const showSchedule = ref(false);
-const showRecord = ref(false);
 const showReschedule = ref(false);
 const selectedIds = ref([]);
 const selectedScheduleIds = ref([]);
@@ -41,12 +40,6 @@ const schedule = useForm({
     notes: '',
 });
 
-const record = useForm({
-    application_id: '',
-    amount: '',
-    remarks: '',
-});
-
 const reschedule = useForm({
     release_date: '',
     release_location: 'MSWDO Window 2, Nabua Local Government Center',
@@ -66,7 +59,6 @@ const selectedScheduleApps = computed(() => {
 
     return approvedRows.value.filter((row) => ids.includes(Number(row.id)));
 });
-const selectedRecordApp = computed(() => props.forRelease.find((row) => String(row.id) === String(record.application_id)));
 const reschedulableSchedules = computed(() => (props.schedules.data ?? []).filter((row) => canRecordSchedule(row)));
 const reschedulableIds = computed(() => reschedulableSchedules.value.map((row) => row.id));
 const selectedSchedules = computed(() => (props.schedules.data ?? []).filter((row) => selectedScheduleIds.value.includes(row.id) && canRecordSchedule(row)));
@@ -106,14 +98,32 @@ const toggleAllSchedules = () => {
     selectedScheduleIds.value = allSchedulesSelected.value ? [] : [...reschedulableIds.value];
 };
 
-const applyFilters = () => filter.get(route('admin.releases.index'), { preserveState: true, preserveScroll: true });
+let searchTimer = null;
+
+const applyFilters = () => filter.get(route('admin.releases.index'), {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+});
+
+watch(
+    () => [filter.q, filter.program, filter.release_date, filter.schedule_status],
+    (values, previous) => {
+        clearTimeout(searchTimer);
+        const searchChanged = values[0] !== previous?.[0];
+        if (searchChanged && values[0]) {
+            searchTimer = setTimeout(applyFilters, 300);
+            return;
+        }
+        applyFilters();
+    },
+);
 
 const clearFilters = () => {
     filter.q = '';
     filter.program = '';
     filter.release_date = '';
     filter.schedule_status = '';
-    applyFilters();
 };
 
 const openSchedule = (row = null) => {
@@ -129,24 +139,9 @@ const openSchedule = (row = null) => {
     showSchedule.value = true;
 };
 
-const openRecord = (row = null) => {
-    const application = row?.application ?? row;
-    record.application_id = application?.id ?? '';
-    record.amount = application?.approved_amount ?? '';
-    record.remarks = '';
-    record.clearErrors();
-    showRecord.value = true;
-};
-
 const closeSchedule = () => {
     if (! schedule.processing) {
         showSchedule.value = false;
-    }
-};
-
-const closeRecord = () => {
-    if (! record.processing) {
-        showRecord.value = false;
     }
 };
 
@@ -216,13 +211,6 @@ const saveSchedule = () => {
     });
 };
 
-const saveRecord = () => record.post(route('admin.releases.record'), {
-    preserveScroll: true,
-    onSuccess: () => {
-        showRecord.value = false;
-    },
-});
-
 </script>
 
 <template>
@@ -233,14 +221,14 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                 <button class="btn-primary btn-sm" type="button" :disabled="!approvedRows.length && !selectedApproved.length" @click="openSchedule()">
                     {{ selectedApproved.length ? `Schedule selected (${selectedApproved.length})` : 'Schedule a release' }}
                 </button>
-                <button class="btn-success btn-sm" type="button" :disabled="!forRelease.length" @click="openRecord()">
+                <Link class="btn-success btn-sm cursor-pointer" :href="route('admin.releases.record.create')">
                     Record actual release
-                </button>
+                </Link>
             </template>
         </PageHeader>
 
         <form class="panel mb-4" @submit.prevent="applyFilters">
-            <div class="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-6">
+            <div class="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
                 <div>
                     <label>Search</label>
                     <input v-model="filter.q" placeholder="Name or application no.">
@@ -264,9 +252,8 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                         <option value="completed">Completed</option>
                     </select>
                 </div>
-                <div class="flex items-end gap-2 xl:col-span-2">
-                    <button class="btn-primary w-full" type="submit">Filter</button>
-                    <button class="btn-ghost w-full" type="button" @click="clearFilters">Clear</button>
+                <div class="flex items-end md:col-span-2 xl:col-span-4">
+                    <button class="btn-ghost" type="button" @click="clearFilters">Clear</button>
                 </div>
             </div>
         </form>
@@ -401,14 +388,13 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
                                 >
                                     Reschedule
                                 </button>
-                                <button
+                                <Link
                                     v-if="canRecordSchedule(row)"
-                                    class="btn-success btn-sm"
-                                    type="button"
-                                    @click="openRecord(row)"
+                                    class="btn-success btn-sm cursor-pointer"
+                                    :href="route('admin.releases.record.create', { q: row.application?.application_no })"
                                 >
                                     Record
-                                </button>
+                                </Link>
                                 <span v-if="!canRecordSchedule(row)" class="text-xs text-gov-muted">—</span>
                             </div>
                         </td>
@@ -511,40 +497,5 @@ const saveRecord = () => record.post(route('admin.releases.record'), {
             </form>
         </Modal>
 
-        <Modal :show="showRecord" title="Record actual release" @close="closeRecord">
-            <form class="grid gap-3 p-4" @submit.prevent="saveRecord">
-                <p v-if="!forRelease.length" class="text-sm text-gov-warning">
-                    An application must be scheduled first before an actual release can be recorded.
-                </p>
-                <div>
-                    <label>Scheduled application</label>
-                    <select v-model="record.application_id" required :disabled="!forRelease.length">
-                        <option value="">Select a scheduled application</option>
-                        <option v-for="row in forRelease" :key="row.id" :value="row.id">
-                            {{ row.application_no }} — {{ row.applicant?.full_name }} ({{ row.approved_amount_formatted }})
-                        </option>
-                    </select>
-                    <p v-if="record.errors.application_id || record.errors.application" class="field-error">
-                        {{ record.errors.application_id || record.errors.application }}
-                    </p>
-                    <p v-if="selectedRecordApp" class="mt-1 text-xs text-gov-muted">
-                        Scheduled · {{ selectedRecordApp.program?.name }}
-                    </p>
-                </div>
-                <div>
-                    <label>Amount</label>
-                    <input v-model="record.amount" type="number" step="0.01" required :disabled="!forRelease.length">
-                    <p v-if="record.errors.amount" class="field-error">{{ record.errors.amount }}</p>
-                </div>
-                <div>
-                    <label>Remarks</label>
-                    <textarea v-model="record.remarks" rows="2" :disabled="!forRelease.length" />
-                </div>
-                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <button class="btn-ghost" type="button" :disabled="record.processing" @click="closeRecord">Cancel</button>
-                    <button class="btn-success" type="submit" :disabled="record.processing || !forRelease.length">Record release</button>
-                </div>
-            </form>
-        </Modal>
     </AdminLayout>
 </template>

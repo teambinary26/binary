@@ -33,5 +33,6 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="OCRSPACE_API_KEY" value="test-ocr-key"/>
+        <env name="SEMAPHORE_API_KEY" value=""/>
     </php>
 </phpunit>

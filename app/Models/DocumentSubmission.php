@@ -12,6 +12,7 @@ class DocumentSubmission extends Model
         'application_id',
         'program_requirement_id',
         'requirement_name',
+        'side',
         'file_path',
         'original_name',
         'mime_type',

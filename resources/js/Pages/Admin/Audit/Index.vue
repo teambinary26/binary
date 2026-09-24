@@ -1,4 +1,5 @@
 <script setup>
+import { watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -16,15 +17,34 @@ const form = useForm({
     action: props.filters.action || '',
 });
 
-const submit = () => form.get(route('admin.audit-logs.index'), { preserveState: true });
+let searchTimer = null;
+
+const applyFilters = () => form.get(route('admin.audit-logs.index'), {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+});
+
+watch(
+    () => [form.q, form.action],
+    (values, previous) => {
+        clearTimeout(searchTimer);
+        const searchChanged = values[0] !== previous?.[0];
+        if (searchChanged && values[0]) {
+            searchTimer = setTimeout(applyFilters, 300);
+            return;
+        }
+        applyFilters();
+    },
+);
 </script>
 
 <template>
     <AdminLayout>
         <Head title="Audit Logs" />
         <PageHeader title="Audit Logs" kicker="Read-only administrative activity trail" />
-        <form class="panel mb-4" @submit.prevent="submit">
-            <div class="grid gap-3 p-4 md:grid-cols-3">
+        <form class="panel mb-4" @submit.prevent="applyFilters">
+            <div class="grid gap-3 p-4 md:grid-cols-2">
                 <div><label>Search</label><input v-model="form.q"></div>
                 <div>
                     <label>Action</label>
@@ -33,7 +53,6 @@ const submit = () => form.get(route('admin.audit-logs.index'), { preserveState: 
                         <option v-for="action in actions" :key="action" :value="action">{{ action }}</option>
                     </select>
                 </div>
-                <div class="flex items-end"><button class="btn-primary w-full" type="submit">Filter</button></div>
             </div>
         </form>
         <table class="data-table">

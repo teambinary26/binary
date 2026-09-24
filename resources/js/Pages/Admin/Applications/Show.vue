@@ -38,26 +38,32 @@ const closeViewer = () => {
     viewerDocument.value = null;
 };
 
+const isIdRequirement = (requirement) => /\bID\b/i.test(requirement?.name || '');
+const sidesFor = (requirement) => (isIdRequirement(requirement) ? ['front', 'back'] : ['front']);
+
 const requirementRows = computed(() => {
     const requirements = props.application.program_detail?.requirements || [];
     const documents = props.application.documents || [];
     const used = new Set();
+    const rows = [];
 
-    const rows = requirements.map((requirement) => {
-        const document = documents.find((item) => item.requirement_id === requirement.id)
-            || documents.find((item) => item.requirement_name === requirement.name)
-            || null;
+    requirements.forEach((requirement) => {
+        sidesFor(requirement).forEach((side) => {
+            const document = documents.find((item) => item.requirement_id === requirement.id && (item.side || 'front') === side)
+                || (side === 'front' ? documents.find((item) => item.requirement_name === requirement.name) : null)
+                || null;
 
-        if (document) {
-            used.add(document.id);
-        }
+            if (document) {
+                used.add(document.id);
+            }
 
-        return {
-            key: `req-${requirement.id}`,
-            required_name: requirement.name,
-            is_required: Boolean(requirement.is_required),
-            document,
-        };
+            rows.push({
+                key: `req-${requirement.id}-${side}`,
+                required_name: isIdRequirement(requirement) ? `${requirement.name} (${side})` : requirement.name,
+                is_required: Boolean(requirement.is_required),
+                document,
+            });
+        });
     });
 
     documents.filter((document) => ! used.has(document.id)).forEach((document) => {

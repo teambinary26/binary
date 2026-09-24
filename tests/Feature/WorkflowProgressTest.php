@@ -437,6 +437,7 @@ test('replacing one revision document returns the application to under verificat
         ->from(route('applicant.apply.documents', $application))
         ->post(route('applicant.apply.documents.store', $application), [
             'requirement_id' => $documents[0]->program_requirement_id,
+            'side' => $documents[0]->side ?: 'front',
             'file' => UploadedFile::fake()->image('first-replacement.jpg'),
         ])
         ->assertRedirect(route('applicant.apply.documents', $application));
@@ -448,6 +449,7 @@ test('replacing one revision document returns the application to under verificat
         ->from(route('applicant.apply.documents', $application))
         ->post(route('applicant.apply.documents.store', $application), [
             'requirement_id' => $documents[1]->program_requirement_id,
+            'side' => $documents[1]->side ?: 'front',
             'file' => UploadedFile::fake()->image('second-replacement.jpg'),
         ])
         ->assertRedirect(route('applicant.applications.show', $application));

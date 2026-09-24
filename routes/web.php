@@ -141,6 +141,7 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(fun
         Route::post('/releases/schedule', [Admin\ReleaseController::class, 'schedule'])->middleware('permission:releases.manage')->name('releases.schedule');
         Route::post('/releases/schedules/reschedule', [Admin\ReleaseController::class, 'rescheduleMany'])->middleware('permission:releases.manage')->name('releases.reschedule-many');
         Route::put('/releases/schedules/{schedule}', [Admin\ReleaseController::class, 'reschedule'])->middleware('permission:releases.manage')->name('releases.reschedule');
+        Route::get('/releases/record', [Admin\ReleaseController::class, 'recordForm'])->middleware('permission:releases.manage')->name('releases.record.create');
         Route::post('/releases/record', [Admin\ReleaseController::class, 'record'])->middleware('permission:releases.manage')->name('releases.record');
         Route::get('/releases/verify', [Admin\ReleaseController::class, 'verifyForm'])->middleware('permission:releases.verify')->name('releases.verify');
         Route::post('/releases/verify', [Admin\ReleaseController::class, 'verify'])->middleware('permission:releases.verify')->name('releases.verify.store');

@@ -40,8 +40,8 @@ const requirements = computed(() => props.application.program_detail?.requiremen
 const requiredList = computed(() => requirements.value.filter((item) => item.is_required));
 const hasFormFields = computed(() => (props.application.program_detail?.form_fields || []).length > 0);
 const documentsKicker = computed(() => hasFormFields.value ? 'Step 2 — Requirements' : 'Step 1 — Requirements');
-const uploadedRequired = computed(() => requiredList.value.filter((item) => isReady(item.id)).length);
-const requiredComplete = computed(() => requiredList.value.every((item) => isReady(item.id)));
+const uploadedRequired = computed(() => requiredList.value.filter((item) => isReady(item)).length);
+const requiredComplete = computed(() => requiredList.value.every((item) => isReady(item)));
 const optionalList = computed(() => requirements.value.filter((item) => ! item.is_required));
 const progressPercent = computed(() => {
     if (! requiredList.value.length) {
@@ -50,19 +50,24 @@ const progressPercent = computed(() => {
 
     return Math.round((uploadedRequired.value / requiredList.value.length) * 100);
 });
-const missingRequired = computed(() => requiredList.value.filter((item) => ! documentFor(item.id)));
+const missingRequired = computed(() => requiredList.value.filter((item) => ! isReady(item)));
 
-const documentFor = (requirementId) => props.application.documents.find((document) => document.requirement_id === requirementId);
+const isIdRequirement = (requirement) => /\bID\b/i.test(requirement?.name || '');
+const sidesFor = (requirement) => (isIdRequirement(requirement) ? ['front', 'back'] : ['front']);
+const slotKey = (requirementId, side) => `${requirementId}-${side}`;
+const documentFor = (requirementId, side = 'front') => props.application.documents.find((document) => (
+    document.requirement_id === requirementId && (document.side || 'front') === side
+));
 const needsReplace = (document) => ['revision_requested', 'rejected'].includes(document?.status);
-const isReady = (requirementId) => {
-    const document = documentFor(requirementId);
+const isReady = (requirement) => sidesFor(requirement).every((side) => {
+    const document = documentFor(requirement.id, side);
 
     return Boolean(document) && ! needsReplace(document);
-};
+});
 const revisionDocuments = computed(() => (props.application.revision_documents ?? props.application.documents.filter((document) => needsReplace(document))));
 const displayedRequirements = computed(() => [...requirements.value].sort((left, right) => {
-    const leftNeed = needsReplace(documentFor(left.id)) ? 0 : 1;
-    const rightNeed = needsReplace(documentFor(right.id)) ? 0 : 1;
+    const leftNeed = isReady(left) ? 1 : 0;
+    const rightNeed = isReady(right) ? 1 : 0;
 
     return leftNeed - rightNeed;
 }));
@@ -90,17 +95,18 @@ const acceptFile = (file) => {
     return null;
 };
 
-const uploadFile = (requirementId, file, input) => {
+const uploadFile = (requirementId, file, input, side = 'front') => {
     const error = acceptFile(file);
     if (error) {
-        fileErrors.value = { ...fileErrors.value, [requirementId]: error };
+        fileErrors.value = { ...fileErrors.value, [slotKey(requirementId, side)]: error };
         notify.error(error);
         if (input) input.value = '';
         return;
     }
 
-    fileErrors.value = { ...fileErrors.value, [requirementId]: '' };
-    uploadingId.value = requirementId;
+    const key = slotKey(requirementId, side);
+    fileErrors.value = { ...fileErrors.value, [key]: '' };
+    uploadingId.value = key;
     uploadPercent.value = 0;
     uploadLoaded.value = 0;
     uploadTotal.value = file.size;
@@ -108,6 +114,7 @@ const uploadFile = (requirementId, file, input) => {
 
     const form = useForm({
         requirement_id: requirementId,
+        side,
         file,
     });
 
@@ -130,7 +137,7 @@ const uploadFile = (requirementId, file, input) => {
         },
         onError: (errors) => {
             const message = errors.file || errors.requirement_id || 'Could not upload that file.';
-            fileErrors.value = { ...fileErrors.value, [requirementId]: message };
+            fileErrors.value = { ...fileErrors.value, [key]: message };
             notify.error(message);
         },
         onFinish: () => {
@@ -143,34 +150,34 @@ const uploadFile = (requirementId, file, input) => {
     });
 };
 
-const onFileChange = (requirementId, event) => {
+const onFileChange = (requirementId, event, side = 'front') => {
     const file = event.target.files?.[0];
     if (file) {
-        uploadFile(requirementId, file, event.target);
+        uploadFile(requirementId, file, event.target, side);
     }
 };
 
-const onDrop = (requirementId, event) => {
+const onDrop = (requirementId, event, side = 'front') => {
     event.preventDefault();
     dragOverId.value = null;
     if (uploadingId.value) return;
     const file = event.dataTransfer?.files?.[0];
     if (file) {
-        uploadFile(requirementId, file);
+        uploadFile(requirementId, file, null, side);
     }
 };
 
-const onDragLeave = (requirementId, event) => {
+const onDragLeave = (requirementId, event, side = 'front') => {
     if (! event.currentTarget.contains(event.relatedTarget)) {
-        if (dragOverId.value === requirementId) {
+        if (dragOverId.value === slotKey(requirementId, side)) {
             dragOverId.value = null;
         }
     }
 };
 
-const pickFile = (requirementId) => {
+const pickFile = (requirementId, side = 'front') => {
     if (uploadingId.value) return;
-    document.getElementById(`file_${requirementId}`)?.click();
+    document.getElementById(`file_${requirementId}_${side}`)?.click();
 };
 
 const jumpTo = (requirementId) => {
@@ -202,22 +209,20 @@ const jumpTo = (requirementId) => {
             </div>
             <div class="space-y-3 px-3 py-3 sm:px-4">
                 <p class="text-sm text-gov-muted">
-                    Upload a clear PDF, JPG, or PNG (maximum 5 MB) for each requirement. Click a card to browse, or drag a file onto it. You can replace a file at any time.
+                    Upload a clear PDF, JPG, or PNG (maximum 5 MB) for each requirement. ID requirements need the front and the back. Click a card to browse, or drag a file onto it. You can replace a file at any time.
                 </p>
                 <div v-if="requirements.length" class="flex flex-wrap gap-2">
                     <button
                         v-for="requirement in requirements"
                         :key="`chip-${requirement.id}`"
                         class="inline-flex items-center gap-1.5 border px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
-                        :class="needsReplace(documentFor(requirement.id))
-                            ? 'border-gov-warning bg-[#fff6e0] text-[#8a6400]'
-                            : (documentFor(requirement.id)
-                                ? 'border-gov-success bg-[#e8f6ee] text-gov-success'
-                                : (requirement.is_required ? 'border-gov-warning bg-[#fff6e0] text-[#8a6400]' : 'border-gov-border bg-gov-off text-gov-muted'))"
+                        :class="isReady(requirement)
+                            ? 'border-gov-success bg-[#e8f6ee] text-gov-success'
+                            : (requirement.is_required ? 'border-gov-warning bg-[#fff6e0] text-[#8a6400]' : 'border-gov-border bg-gov-off text-gov-muted')"
                         type="button"
                         @click="jumpTo(requirement.id)"
                     >
-                        <span aria-hidden="true">{{ needsReplace(documentFor(requirement.id)) ? '!' : (documentFor(requirement.id) ? '✓' : '○') }}</span>
+                        <span aria-hidden="true">{{ isReady(requirement) ? '✓' : '○' }}</span>
                         {{ requirement.name }}
                     </button>
                 </div>
@@ -243,70 +248,73 @@ const jumpTo = (requirementId) => {
                 :id="`requirement-${requirement.id}`"
                 :key="requirement.id"
                 class="panel border-l-4"
-                :class="needsReplace(documentFor(requirement.id))
+                :class="!isReady(requirement) && requirement.is_required
                     ? 'border-l-gov-warning'
-                    : (documentFor(requirement.id)
+                    : (isReady(requirement)
                         ? 'border-l-gov-success'
-                        : (requirement.is_required ? 'border-l-gov-warning' : 'border-l-gov-border'))"
+                        : 'border-l-gov-border')"
             >
                 <div class="flex flex-wrap items-start justify-between gap-2 border-b border-gov-border px-3 py-3 sm:px-4">
                     <div class="flex min-w-0 items-start gap-3">
                         <span
                             class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold"
-                            :class="documentFor(requirement.id) ? 'bg-gov-success text-white' : 'bg-gov-blue text-white'"
+                            :class="isReady(requirement) ? 'bg-gov-success text-white' : 'bg-gov-blue text-white'"
                         >
                             {{ String(index + 1).padStart(2, '0') }}
                         </span>
                         <div class="min-w-0">
                             <h2 class="break-words text-sm font-bold uppercase tracking-wide text-gov-dark">{{ requirement.name }}</h2>
                             <p v-if="requirement.description" class="mt-1 break-words text-sm text-gov-muted">{{ requirement.description }}</p>
+                            <p v-if="isIdRequirement(requirement)" class="mt-1 text-xs font-semibold text-gov-blue">Upload the front and the back. Both sides are required.</p>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-1">
                         <span v-if="requirement.is_required" class="badge badge-danger">Required</span>
                         <span v-else class="badge badge-neutral">Optional</span>
-                        <span v-if="needsReplace(documentFor(requirement.id))" class="text-xs font-bold uppercase tracking-wide text-[#8a6400]">{{ documentFor(requirement.id).status_label }}</span>
-                        <span v-else-if="documentFor(requirement.id)" class="text-xs font-bold uppercase tracking-wide text-gov-success">Uploaded</span>
-                        <span v-else class="text-xs font-bold uppercase tracking-wide text-[#8a6400]">Not uploaded</span>
+                        <span v-if="isReady(requirement)" class="text-xs font-bold uppercase tracking-wide text-gov-success">Uploaded</span>
+                        <span v-else class="text-xs font-bold uppercase tracking-wide text-[#8a6400]">{{ isIdRequirement(requirement) && documentFor(requirement.id, 'front') ? 'Back required' : 'Not uploaded' }}</span>
                     </div>
                 </div>
 
-                <div class="grid md:grid-cols-2">
+                <div v-for="side in sidesFor(requirement)" :key="`${requirement.id}-${side}`" class="grid border-t border-gov-border md:grid-cols-2">
+                    <p v-if="isIdRequirement(requirement)" class="border-b border-gov-border bg-gov-off px-3 py-2 text-xs font-bold uppercase tracking-wide text-gov-blue md:col-span-2">
+                        {{ side === 'back' ? 'Back' : 'Front' }}
+                    </p>
                     <div
                         class="relative flex min-h-[9.5rem] cursor-pointer flex-col items-center justify-center border-b border-gov-border px-3 py-6 text-center transition-colors sm:min-h-[12rem] sm:px-4 md:min-h-[13rem] md:border-b-0 md:border-r"
                         :class="[
-                            uploadingId === requirement.id ? 'pointer-events-none bg-gov-light' : '',
-                            dragOverId === requirement.id ? 'bg-gov-light' : 'bg-gov-off',
-                            fileErrors[requirement.id] ? 'ring-2 ring-inset ring-gov-danger' : '',
+                            uploadingId === slotKey(requirement.id, side) ? 'pointer-events-none bg-gov-light' : '',
+                            dragOverId === slotKey(requirement.id, side) ? 'bg-gov-light' : 'bg-gov-off',
+                            fileErrors[slotKey(requirement.id, side)] ? 'ring-2 ring-inset ring-gov-danger' : '',
                         ]"
                         role="button"
                         tabindex="0"
-                        :aria-label="documentFor(requirement.id) ? `Replace ${requirement.name}` : `Upload ${requirement.name}`"
-                        @click="pickFile(requirement.id)"
-                        @keydown.enter.prevent="pickFile(requirement.id)"
-                        @keydown.space.prevent="pickFile(requirement.id)"
-                        @dragover.prevent="dragOverId = requirement.id"
-                        @dragleave="onDragLeave(requirement.id, $event)"
-                        @drop="onDrop(requirement.id, $event)"
+                        :aria-label="documentFor(requirement.id, side) ? `Replace ${requirement.name} ${side}` : `Upload ${requirement.name} ${side}`"
+                        @click="pickFile(requirement.id, side)"
+                        @keydown.enter.prevent="pickFile(requirement.id, side)"
+                        @keydown.space.prevent="pickFile(requirement.id, side)"
+                        @dragover.prevent="dragOverId = slotKey(requirement.id, side)"
+                        @dragleave="onDragLeave(requirement.id, $event, side)"
+                        @drop="onDrop(requirement.id, $event, side)"
                     >
                         <input
-                            :id="`file_${requirement.id}`"
+                            :id="`file_${requirement.id}_${side}`"
                             class="sr-only"
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                            :disabled="uploadingId === requirement.id"
+                            :disabled="uploadingId === slotKey(requirement.id, side)"
                             @click.stop
-                            @change="onFileChange(requirement.id, $event)"
+                            @change="onFileChange(requirement.id, $event, side)"
                         >
 
                         <div
-                            v-if="dragOverId === requirement.id"
+                            v-if="dragOverId === slotKey(requirement.id, side)"
                             class="pointer-events-none absolute inset-1 flex items-center justify-center border-2 border-dashed border-gov-blue bg-white/90"
                         >
                             <p class="text-sm font-bold uppercase tracking-wide text-gov-blue">Drop file to upload</p>
                         </div>
 
-                        <template v-else-if="uploadingId === requirement.id">
+                        <template v-else-if="uploadingId === slotKey(requirement.id, side)">
                             <p class="text-2xl font-bold tabular-nums text-gov-blue">{{ uploadPercent }}%</p>
                             <p class="mt-1 text-sm font-semibold text-gov-dark">Uploading…</p>
                             <p class="mt-1 max-w-full truncate px-2 text-xs text-gov-muted" :title="uploadName">{{ uploadName }}</p>
@@ -324,8 +332,8 @@ const jumpTo = (requirementId) => {
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 16.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1.5" />
                             </svg>
                             <p class="text-sm font-semibold text-gov-dark">
-                                <template v-if="needsReplace(documentFor(requirement.id))">Upload a replacement</template>
-                                <template v-else-if="documentFor(requirement.id)">Replace this file</template>
+                                <template v-if="needsReplace(documentFor(requirement.id, side))">Upload a replacement</template>
+                                <template v-else-if="documentFor(requirement.id, side)">Replace this file</template>
                                 <template v-else>
                                     <span class="sm:hidden">Tap to choose a file</span>
                                     <span class="hidden sm:inline">Drop a file here or click to browse</span>
@@ -333,26 +341,26 @@ const jumpTo = (requirementId) => {
                             </p>
                             <p class="mt-1 text-xs text-gov-muted">PDF, JPG, or PNG · maximum 5 MB</p>
                             <span class="btn-secondary btn-sm mt-3 pointer-events-none">
-                                {{ needsReplace(documentFor(requirement.id)) || documentFor(requirement.id) ? 'Choose replacement' : 'Choose file' }}
+                                {{ needsReplace(documentFor(requirement.id, side)) || documentFor(requirement.id, side) ? 'Choose replacement' : 'Choose file' }}
                             </span>
-                            <p v-if="fileErrors[requirement.id]" class="field-error mt-2">{{ fileErrors[requirement.id] }}</p>
+                            <p v-if="fileErrors[slotKey(requirement.id, side)]" class="field-error mt-2">{{ fileErrors[slotKey(requirement.id, side)] }}</p>
                         </template>
                     </div>
 
                     <div
-                        v-if="documentFor(requirement.id)"
+                        v-if="documentFor(requirement.id, side)"
                         class="flex flex-col bg-white md:min-h-[13rem]"
                     >
                         <button
                             class="flex items-center justify-center bg-gov-off px-3 py-3"
                             type="button"
                             :aria-label="`View ${requirement.name}`"
-                            @click="openViewer(documentFor(requirement.id))"
+                            @click="openViewer(documentFor(requirement.id, side))"
                         >
                             <img
-                                v-if="documentFor(requirement.id).is_image && documentFor(requirement.id).url"
-                                :src="documentFor(requirement.id).url"
-                                :alt="documentFor(requirement.id).original_name"
+                                v-if="documentFor(requirement.id, side).is_image && documentFor(requirement.id, side).url"
+                                :src="documentFor(requirement.id, side).url"
+                                :alt="documentFor(requirement.id, side).original_name"
                                 class="max-h-36 max-w-full object-contain sm:max-h-40"
                             >
                             <div v-else class="flex flex-col items-center gap-2 px-4 py-4 text-center">
@@ -360,20 +368,20 @@ const jumpTo = (requirementId) => {
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5" />
                                 </svg>
-                                <p class="text-sm font-semibold text-gov-dark">{{ documentFor(requirement.id).is_pdf ? 'PDF uploaded' : 'File uploaded' }}</p>
+                                <p class="text-sm font-semibold text-gov-dark">{{ documentFor(requirement.id, side).is_pdf ? 'PDF uploaded' : 'File uploaded' }}</p>
                                 <p class="text-xs text-gov-muted">Tap to view</p>
                             </div>
                         </button>
                         <div class="flex flex-col gap-2 border-t border-gov-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                             <div class="min-w-0">
-                                <p class="break-all text-xs font-semibold text-gov-dark" :title="documentFor(requirement.id).original_name">
-                                    {{ documentFor(requirement.id).original_name }}
+                                <p class="break-all text-xs font-semibold text-gov-dark" :title="documentFor(requirement.id, side).original_name">
+                                    {{ documentFor(requirement.id, side).original_name }}
                                 </p>
-                                <p class="mt-0.5 text-[11px] text-gov-muted">Uploaded {{ documentFor(requirement.id).uploaded_at }}</p>
-                                <p v-if="needsReplace(documentFor(requirement.id)) && documentFor(requirement.id).remarks" class="mt-1 text-xs text-gov-warning">
-                                    Staff remarks: {{ documentFor(requirement.id).remarks }}
+                                <p class="mt-0.5 text-[11px] text-gov-muted">Uploaded {{ documentFor(requirement.id, side).uploaded_at }}</p>
+                                <p v-if="needsReplace(documentFor(requirement.id, side)) && documentFor(requirement.id, side).remarks" class="mt-1 text-xs text-gov-warning">
+                                    Staff remarks: {{ documentFor(requirement.id, side).remarks }}
                                 </p>
-                                <p v-if="documentFor(requirement.id)?.ocr?.type_matches === false" class="mt-1 text-xs text-gov-warning">
+                                <p v-if="documentFor(requirement.id, side)?.ocr?.type_matches === false" class="mt-1 text-xs text-gov-warning">
                                     This file may not be a {{ requirement.name }}. Please upload the correct document.
                                 </p>
                             </div>
@@ -381,13 +389,13 @@ const jumpTo = (requirementId) => {
                                 <button
                                     class="btn-secondary btn-sm flex-1 sm:flex-none"
                                     type="button"
-                                    @click="openViewer(documentFor(requirement.id))"
+                                    @click="openViewer(documentFor(requirement.id, side))"
                                 >
                                     View
                                 </button>
                                 <a
                                     class="btn-ghost btn-sm flex-1 text-center sm:flex-none"
-                                    :href="downloadHref(documentFor(requirement.id))"
+                                    :href="downloadHref(documentFor(requirement.id, side))"
                                     @click.stop
                                 >
                                     Download
@@ -405,7 +413,7 @@ const jumpTo = (requirementId) => {
                         </svg>
                         <p class="text-sm font-semibold text-gov-dark">No preview yet</p>
                         <p class="mt-1 max-w-[16rem] text-xs text-gov-muted">
-                            {{ requirement.is_required ? 'This document is required before you can continue.' : 'Optional. You can skip this if you do not have it.' }}
+                            {{ side === 'back' ? 'The back of this ID is required before you can continue.' : (requirement.is_required ? 'This document is required before you can continue.' : 'Optional. You can skip this if you do not have it.') }}
                         </p>
                     </div>
                 </div>

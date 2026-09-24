@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
@@ -22,7 +22,26 @@ const form = useForm({
     q: props.filters.q || '',
 });
 
-const submit = () => form.get(route('site.programs.index'), { preserveState: true });
+let searchTimer = null;
+
+const applyFilters = () => form.get(route('site.programs.index'), {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+});
+
+watch(
+    () => [form.q, form.category, form.beneficiary, form.availability],
+    (values, previous) => {
+        clearTimeout(searchTimer);
+        const searchChanged = values[0] !== previous?.[0];
+        if (searchChanged && values[0]) {
+            searchTimer = setTimeout(applyFilters, 300);
+            return;
+        }
+        applyFilters();
+    },
+);
 </script>
 
 <template>
@@ -36,7 +55,7 @@ const submit = () => form.get(route('site.programs.index'), { preserveState: tru
             </div>
         </div>
         <div class="mx-auto max-w-7xl px-4 py-6 md:py-8">
-            <form class="panel mb-6" @submit.prevent="submit">
+            <form class="panel mb-6" @submit.prevent="applyFilters">
                 <div class="panel-h-light">Filter programs</div>
                 <div class="grid gap-4 p-4 md:grid-cols-4">
                     <div>
@@ -64,10 +83,7 @@ const submit = () => form.get(route('site.programs.index'), { preserveState: tru
                     </div>
                     <div>
                         <label for="q">Search program</label>
-                        <div class="flex min-w-0 flex-col gap-2 sm:flex-row">
-                            <input id="q" v-model="form.q" class="min-w-0 flex-1" placeholder="Name or code">
-                            <button class="btn-primary w-full shrink-0 sm:w-auto" type="submit">Filter</button>
-                        </div>
+                        <input id="q" v-model="form.q" placeholder="Name or code">
                     </div>
                 </div>
             </form>

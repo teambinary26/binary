@@ -10,7 +10,22 @@ const props = defineProps({
     application: { type: Object, required: true },
 });
 
-const documentFor = (requirementId) => props.application.documents.find((d) => d.requirement_id === requirementId);
+const isIdRequirement = (requirement) => /\bID\b/i.test(requirement?.name || '');
+const sidesFor = (requirement) => (isIdRequirement(requirement) ? ['front', 'back'] : ['front']);
+const documentFor = (requirementId, side = 'front') => props.application.documents.find((d) => (
+    d.requirement_id === requirementId && (d.side || 'front') === side
+));
+const fileLabel = (requirement, side) => {
+    const document = documentFor(requirement.id, side);
+    if (!document) {
+        return isIdRequirement(requirement) ? `${side === 'back' ? 'Back' : 'Front'} not uploaded` : 'Not uploaded';
+    }
+    if (['revision_requested', 'rejected'].includes(document.status)) {
+        return document.status_label;
+    }
+
+    return document.original_name;
+};
 const form = useForm({});
 const submit = () => form.post(route('applicant.apply.submit', props.application.id));
 const hasFormFields = computed(() => (props.application.program_detail?.form_fields || []).length > 0);
@@ -53,8 +68,15 @@ const reviewKicker = computed(() => hasFormFields.value ? 'Step 3 — Review and
             <ul class="divide-y divide-gov-border text-sm">
                 <li v-for="requirement in application.program_detail?.requirements" :key="requirement.id" class="flex flex-col gap-1 px-4 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <span class="min-w-0 break-words font-semibold sm:font-normal">{{ requirement.name }}</span>
-                    <span class="min-w-0 break-all text-sm sm:max-w-[55%] sm:text-right" :class="['revision_requested', 'rejected'].includes(documentFor(requirement.id)?.status) ? 'text-gov-warning' : 'text-gov-muted sm:text-gov-text'">
-                        {{ documentFor(requirement.id)?.status_label && ['revision_requested', 'rejected'].includes(documentFor(requirement.id)?.status) ? documentFor(requirement.id).status_label : (documentFor(requirement.id)?.original_name || 'Not uploaded') }}
+                    <span class="flex min-w-0 flex-col gap-1 sm:max-w-[55%] sm:items-end sm:text-right">
+                        <span
+                            v-for="side in sidesFor(requirement)"
+                            :key="`${requirement.id}-${side}`"
+                            class="break-all text-sm"
+                            :class="['revision_requested', 'rejected'].includes(documentFor(requirement.id, side)?.status) ? 'text-gov-warning' : 'text-gov-muted sm:text-gov-text'"
+                        >
+                            <template v-if="isIdRequirement(requirement)">{{ side === 'back' ? 'Back' : 'Front' }}: </template>{{ fileLabel(requirement, side) }}
+                        </span>
                     </span>
                 </li>
             </ul>

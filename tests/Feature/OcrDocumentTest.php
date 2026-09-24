@@ -54,6 +54,9 @@ test('uploading a document runs ocr and compares fields without verifying', func
 
     $uploaded = $application->fresh()->documents()
         ->where('program_requirement_id', $document->program_requirement_id)
+        ->where(function ($query) {
+            $query->whereNull('side')->orWhere('side', 'front');
+        })
         ->firstOrFail();
 
     expect($uploaded->verification?->status)->toBe(DocumentVerificationStatus::Pending)
@@ -90,6 +93,9 @@ test('ocr type mismatch notifies the applicant but does not reject the file', fu
 
     $uploaded = $application->fresh()->documents()
         ->where('program_requirement_id', $document->program_requirement_id)
+        ->where(function ($query) {
+            $query->whereNull('side')->orWhere('side', 'front');
+        })
         ->firstOrFail();
 
     expect($uploaded->verification?->status)->toBe(DocumentVerificationStatus::Pending)
@@ -138,6 +144,9 @@ TEXT);
 
     $uploaded = $application->fresh()->documents()
         ->where('program_requirement_id', $document->program_requirement_id)
+        ->where(function ($query) {
+            $query->whereNull('side')->orWhere('side', 'front');
+        })
         ->with('ocrResult.fields')
         ->firstOrFail();
 

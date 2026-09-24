@@ -26,11 +26,32 @@ const form = useForm({
     program: props.filters.program || '',
 });
 
-const submit = () => form.get(route('admin.applications.index'), { preserveState: true });
+let searchTimer = null;
+
+const applyFilters = () => {
+    form.get(route('admin.applications.index'), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+};
+
+watch(() => form.q, (value) => {
+    clearTimeout(searchTimer);
+    if (! value) {
+        applyFilters();
+        return;
+    }
+    searchTimer = setTimeout(applyFilters, 300);
+});
+
+watch(() => [form.status, form.program], () => {
+    clearTimeout(searchTimer);
+    applyFilters();
+});
 
 const filterByStatus = (statusValue) => {
     form.status = statusValue;
-    submit();
 };
 
 const pageIds = computed(() => (props.applications.data ?? []).map((row) => Number(row.id)));
@@ -162,8 +183,8 @@ const toneClass = (tone) => ({
             </button>
         </div>
 
-        <form class="panel mb-4" @submit.prevent="submit">
-            <div class="grid gap-3 p-4 md:grid-cols-4">
+        <form class="panel mb-4" @submit.prevent="applyFilters">
+            <div class="grid gap-3 p-4 md:grid-cols-3">
                 <div><label>Search</label><input v-model="form.q" placeholder="Name or number"></div>
                 <div>
                     <label>Status</label>
@@ -179,7 +200,6 @@ const toneClass = (tone) => ({
                         <option v-for="program in programs" :key="program.id" :value="program.id">{{ program.name }}</option>
                     </select>
                 </div>
-                <div class="flex items-end"><button class="btn-primary w-full" type="submit">Filter</button></div>
             </div>
         </form>
 

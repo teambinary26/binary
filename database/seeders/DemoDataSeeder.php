@@ -16,6 +16,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\WorkflowStaff;
 use App\Support\DocumentFiles;
+use App\Support\IdRequirements;
 use App\Support\OcrFields;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -213,21 +214,40 @@ class DemoDataSeeder extends Seeder
             }
 
             foreach ($program->requirements as $requirement) {
-                $path = 'documents/'.$application->id.'/'.Str::slug($requirement->name).'.txt';
+                $sides = IdRequirements::requiresBack($requirement->name) ? ['front', 'back'] : ['front'];
+
+                foreach ($sides as $side) {
+                $slug = Str::slug($requirement->name).($side === 'back' ? '-back' : '');
+                $path = 'documents/'.$application->id.'/'.$slug.'.txt';
                 $ocrText = $this->sampleOcrText($requirement->name, $applicant, $application);
                 DocumentFiles::put($path, $ocrText);
 
-                $document = $application->documents()->updateOrCreate(
-                    ['program_requirement_id' => $requirement->id],
-                    [
-                        'requirement_name' => $requirement->name,
-                        'file_path' => $path,
-                        'original_name' => Str::slug($requirement->name).'.txt',
-                        'mime_type' => 'text/plain',
-                        'file_size' => strlen($ocrText),
-                        'uploaded_at' => $submittedAt,
-                    ]
-                );
+                $lookup = $application->documents()
+                    ->where('program_requirement_id', $requirement->id)
+                    ->where(function ($query) use ($side) {
+                        if ($side === 'back') {
+                            $query->where('side', 'back');
+                        } else {
+                            $query->whereNull('side')->orWhere('side', 'front');
+                        }
+                    })
+                    ->first();
+
+                $attributes = [
+                    'requirement_name' => $side === 'back' ? $requirement->name.' (back)' : $requirement->name,
+                    'side' => $side,
+                    'file_path' => $path,
+                    'original_name' => $slug.'.txt',
+                    'mime_type' => 'text/plain',
+                    'file_size' => strlen($ocrText),
+                    'uploaded_at' => $submittedAt,
+                ];
+
+                $document = $lookup
+                    ? tap($lookup)->update($attributes)
+                    : $application->documents()->create($attributes + [
+                        'program_requirement_id' => $requirement->id,
+                    ]);
 
                 $document->ocrResult()->updateOrCreate(
                     ['document_submission_id' => $document->id],
@@ -261,6 +281,7 @@ class DemoDataSeeder extends Seeder
                         'remarks' => $docStatus === DocumentVerificationStatus::Verified ? 'Document is authentic and sufficient.' : null,
                     ]
                 );
+                }
             }
 
             $history = [

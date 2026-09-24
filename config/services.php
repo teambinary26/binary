@@ -41,6 +41,12 @@ return [
         'verify_url' => env('TURNSTILE_VERIFY_URL', 'https://challenges.cloudflare.com/turnstile/v0/siteverify'),
     ],
 
+    'semaphore' => [
+        'key' => env('SEMAPHORE_API_KEY'),
+        'url' => env('SEMAPHORE_URL', 'https://api.semaphore.co/api/v4/messages'),
+        'sender' => env('SEMAPHORE_SENDER', ''),
+    ],
+
     'ocrspace' => [
         'key' => env('OCRSPACE_API_KEY'),
         'url' => env('OCRSPACE_URL', 'https://api.ocr.space/parse/image'),

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -25,7 +25,26 @@ const form = useForm({
 const pending = ref(null);
 const deleting = useForm({});
 
-const submit = () => form.get(route('admin.applicants.index'), { preserveState: true });
+let searchTimer = null;
+
+const applyFilters = () => form.get(route('admin.applicants.index'), {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+});
+
+watch(
+    () => [form.q, form.type, form.barangay],
+    (values, previous) => {
+        clearTimeout(searchTimer);
+        const searchChanged = values[0] !== previous?.[0];
+        if (searchChanged && values[0]) {
+            searchTimer = setTimeout(applyFilters, 300);
+            return;
+        }
+        applyFilters();
+    },
+);
 
 const askRemove = (row) => {
     if (! row.can_delete) {
@@ -61,8 +80,8 @@ const confirmRemove = () => {
     <AdminLayout>
         <Head title="Applicants" />
         <PageHeader title="Beneficiaries / Applicants" kicker="Registered citizens" />
-        <form class="panel mb-4" @submit.prevent="submit">
-            <div class="grid gap-3 p-4 md:grid-cols-4">
+        <form class="panel mb-4" @submit.prevent="applyFilters">
+            <div class="grid gap-3 p-4 md:grid-cols-3">
                 <div><label>Search</label><input v-model="form.q"></div>
                 <div>
                     <label>Type</label>
@@ -79,7 +98,6 @@ const confirmRemove = () => {
                         <option v-for="barangay in barangays" :key="barangay" :value="barangay">{{ barangay }}</option>
                     </select>
                 </div>
-                <div class="flex items-end"><button class="btn-primary w-full" type="submit">Filter</button></div>
             </div>
         </form>
         <table class="data-table">

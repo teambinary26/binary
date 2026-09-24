@@ -165,6 +165,53 @@ class ReleaseController extends Controller
             : $count.' releases have been rescheduled.');
     }
 
+    public function recordForm(Request $request): InertiaResponse
+    {
+        $query = trim((string) $request->string('q'));
+        $matches = collect();
+
+        if ($query !== '') {
+            $search = '%'.$query.'%';
+            $matches = Application::query()
+                ->with([
+                    'applicant.profile',
+                    'applicant.primaryAddress',
+                    'applicant.user',
+                    'program.category',
+                    'latestSchedule',
+                    'answers',
+                ])
+                ->where('status', ApplicationStatus::ScheduledForRelease->value)
+                ->where(function (Builder $inner) use ($search) {
+                    $inner->where('application_no', 'like', $search)
+                        ->orWhereHas('applicant', fn (Builder $applicant) => $applicant->where('full_name', 'like', $search));
+                })
+                ->orderBy('application_no')
+                ->limit(10)
+                ->get()
+                ->map(function (Application $application) {
+                    $schedule = $application->latestSchedule;
+
+                    return array_merge(CamData::applicationRow($application), [
+                        'details' => CamData::submittedInformation($application)->values(),
+                        'schedule' => $schedule ? [
+                            'release_date' => gov_date($schedule->release_date),
+                            'release_location' => $schedule->release_location,
+                            'method_label' => $schedule->methodLabel(),
+                            'notes' => $schedule->notes,
+                        ] : null,
+                    ]);
+                })
+                ->values();
+        }
+
+        return Inertia::render('Admin/Releases/Record', [
+            'query' => $query,
+            'matches' => $matches,
+            'searched' => $query !== '',
+        ]);
+    }
+
     public function record(Request $request, ReleaseService $releases): RedirectResponse
     {
         $data = $request->validate([

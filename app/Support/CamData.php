@@ -149,6 +149,7 @@ class CamData
                 'id' => $d->id,
                 'requirement_id' => $d->program_requirement_id,
                 'requirement_name' => $d->requirement_name,
+                'side' => $d->side ?: 'front',
                 'original_name' => $d->original_name,
                 'url' => DocumentFiles::url($d->file_path),
                 'is_image' => DocumentFiles::isImage($d->mime_type, $d->original_name),

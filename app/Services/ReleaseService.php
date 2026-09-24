@@ -18,6 +18,7 @@ class ReleaseService
         private ApplicationService $applications,
         private NotificationService $notifications,
         private AuditService $audit,
+        private SemaphoreSmsService $sms,
     ) {}
 
     public function schedule(Application $application, User $user, array $data): ReleaseSchedule
@@ -52,6 +53,7 @@ class ReleaseService
         );
 
         $this->emailReleaseSchedule($application, $schedule);
+        $this->textReleaseSchedule($application, $schedule);
 
         return $schedule;
     }
@@ -99,6 +101,7 @@ class ReleaseService
         );
 
         $this->emailReleaseSchedule($application, $schedule, rescheduled: true);
+        $this->textReleaseSchedule($application, $schedule, rescheduled: true);
 
         return $schedule;
     }
@@ -213,5 +216,20 @@ class ReleaseService
         } catch (\Throwable $exception) {
             report($exception);
         }
+    }
+
+    private function textReleaseSchedule(Application $application, ReleaseSchedule $schedule, bool $rescheduled = false): void
+    {
+        $application->loadMissing(['applicant', 'program']);
+
+        $when = gov_date($schedule->release_date);
+        $action = $rescheduled ? 'was moved to' : 'is scheduled on';
+        $message = 'LYDO Nabua: '.$application->program?->name
+            .' ('.$application->application_no.') release '.$action.' '.$when
+            .' at '.$schedule->release_location
+            .'. Method: '.$schedule->methodLabel()
+            .'. Bring a valid ID.';
+
+        $this->sms->send($application->applicant?->contact_number, $message);
     }
 }
