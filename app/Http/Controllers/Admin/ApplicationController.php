@@ -31,9 +31,21 @@ class ApplicationController extends Controller
     {
         $applicationService->syncOpenAssignments();
 
+        $requestedStatus = $request->string('status')->toString();
+        $tab = $request->string('tab')->toString() === 'incoming'
+            || $requestedStatus === ApplicationStatus::Draft->value
+            ? 'incoming'
+            : 'all';
+        $statusFilter = $requestedStatus === ApplicationStatus::Draft->value ? '' : $requestedStatus;
+
         $applications = Application::query()
             ->with(['applicant.primaryAddress', 'program.category', 'assignedStaff'])
-            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when(
+                $tab === 'incoming',
+                fn ($q) => $q->where('status', ApplicationStatus::Draft->value),
+                fn ($q) => $q->where('status', '!=', ApplicationStatus::Draft->value)
+                    ->when($statusFilter !== '', fn ($query) => $query->where('status', $statusFilter)),
+            )
             ->when($request->filled('program'), fn ($q) => $q->where('assistance_program_id', $request->integer('program')))
             ->when($request->filled('q'), function ($q) use ($request) {
                 $search = '%'.$request->string('q').'%';
@@ -53,10 +65,11 @@ class ApplicationController extends Controller
             ->all();
 
         $countFor = fn (array $values) => collect($values)->sum(fn ($v) => (int) ($rawCounts[$v] ?? 0));
+        $incomingCount = $countFor([ApplicationStatus::Draft->value]);
 
         $counts = [
-            'total' => array_sum($rawCounts),
-            'draft' => $countFor([ApplicationStatus::Draft->value]),
+            'total' => array_sum($rawCounts) - $incomingCount,
+            'incoming' => $incomingCount,
             'in_progress' => $countFor([
                 ApplicationStatus::Accepted->value,
                 ApplicationStatus::Submitted->value,
@@ -81,10 +94,20 @@ class ApplicationController extends Controller
         return Inertia::render('Admin/Applications/Index', [
             'applications' => CamData::paginator($applications, fn ($a) => CamData::applicationRow($a)),
             'programs' => AssistanceProgram::query()->orderBy('name')->get(['id', 'name']),
-            'statuses' => CamData::statuses(),
-            'filters' => $request->only(['status', 'program', 'q']),
+            'statuses' => collect(CamData::statuses())
+                ->reject(fn (array $status) => $status['value'] === ApplicationStatus::Draft->value)
+                ->values()
+                ->all(),
+            'filters' => [
+                'status' => $statusFilter,
+                'program' => $request->input('program', ''),
+                'q' => $request->input('q', ''),
+                'tab' => $tab,
+            ],
+            'tab' => $tab,
             'counts' => $counts,
             'canDelete' => (bool) $request->user()?->isAdmin(),
+            'canAccept' => (bool) $request->user()?->hasPermission('applications.accept'),
         ]);
     }
 
@@ -212,6 +235,8 @@ class ApplicationController extends Controller
                 'verify' => request()->user()->can('verify', $application),
                 'evaluate' => request()->user()->can('evaluate', $application),
                 'approve' => request()->user()->can('approve', $application),
+                'accept' => request()->user()->can('acceptIncoming', $application),
+                'manage' => request()->user()->can('update', $application),
             ],
         ]);
     }
@@ -397,7 +422,7 @@ class ApplicationController extends Controller
 
     public function approveApplicant(Request $request, Application $application, ApprovalService $approval): RedirectResponse
     {
-        $this->authorize('approve', $application);
+        $this->authorize('acceptIncoming', $application);
 
         $data = $request->validate([
             'remarks' => ['nullable', 'string'],
@@ -410,7 +435,7 @@ class ApplicationController extends Controller
 
     public function rejectApplicant(Request $request, Application $application, ApprovalService $approval): RedirectResponse
     {
-        $this->authorize('approve', $application);
+        $this->authorize('acceptIncoming', $application);
 
         $data = $request->validate([
             'remarks' => ['required', 'string'],

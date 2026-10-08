@@ -2,10 +2,8 @@
 
 namespace App\Policies;
 
-use App\Enums\WorkflowStep;
 use App\Models\Application;
 use App\Models\User;
-use App\Models\WorkflowStaff;
 
 class ApplicationPolicy
 {
@@ -32,42 +30,23 @@ class ApplicationPolicy
         return $user->isAdmin();
     }
 
+    public function acceptIncoming(User $user, Application $application): bool
+    {
+        return $user->hasPermission('applications.accept');
+    }
+
     public function verify(User $user, Application $application): bool
     {
-        if (! $user->hasPermission('applications.verify')) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return WorkflowStaff::isAssignedToStep($user->id, WorkflowStep::Verification);
+        return $user->hasPermission('applications.verify');
     }
 
     public function evaluate(User $user, Application $application): bool
     {
-        if (! $user->hasPermission('applications.evaluate')) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return WorkflowStaff::isAssignedToStep($user->id, WorkflowStep::Evaluation);
+        return $user->hasPermission('applications.evaluate');
     }
 
     public function approve(User $user, Application $application): bool
     {
-        if (! $user->hasPermission('applications.approve')) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return WorkflowStaff::isAssignedToStep($user->id, WorkflowStep::Approval);
+        return $user->hasPermission('applications.approve');
     }
 }

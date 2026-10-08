@@ -7,23 +7,29 @@ import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import Pagination from '@/Components/Pagination.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import Modal from '@/Components/Modal.vue';
 
 const props = defineProps({
     applications: { type: Object, required: true },
     programs: { type: Array, default: () => [] },
     statuses: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
+    tab: { type: String, default: 'all' },
     counts: {
         type: Object,
-        default: () => ({ total: 0, draft: 0, in_progress: 0, approved: 0, rejected: 0 }),
+        default: () => ({ total: 0, incoming: 0, in_progress: 0, approved: 0, rejected: 0 }),
     },
     canDelete: { type: Boolean, default: false },
+    canAccept: { type: Boolean, default: false },
 });
+
+const isIncoming = computed(() => props.tab === 'incoming');
 
 const form = useForm({
     q: props.filters.q || '',
     status: props.filters.status || '',
     program: props.filters.program || '',
+    tab: props.tab || 'all',
 });
 
 let searchTimer = null;
@@ -45,12 +51,26 @@ watch(() => form.q, (value) => {
     searchTimer = setTimeout(applyFilters, 300);
 });
 
-watch(() => [form.status, form.program], () => {
+watch(() => [form.status, form.program, form.tab], () => {
     clearTimeout(searchTimer);
     applyFilters();
 });
 
+const switchTab = (tab) => {
+    if (form.tab === tab) {
+        return;
+    }
+
+    selectedIds.value = [];
+    form.tab = tab;
+    if (tab === 'incoming') {
+        form.status = '';
+    }
+};
+
 const filterByStatus = (statusValue) => {
+    selectedIds.value = [];
+    form.tab = 'all';
     form.status = statusValue;
 };
 
@@ -147,9 +167,63 @@ const deleteMessage = computed(() => {
     return `Are you sure you want to delete application ${pendingDelete.value.application_no}? This action cannot be undone.`;
 });
 
+const reviewForm = useForm({ remarks: '' });
+const pendingReview = ref(null);
+
+const requestAccept = (row) => {
+    pendingReview.value = { row, action: 'accept' };
+    reviewForm.remarks = '';
+    reviewForm.clearErrors();
+};
+
+const requestReject = (row) => {
+    pendingReview.value = { row, action: 'reject' };
+    reviewForm.remarks = '';
+    reviewForm.clearErrors();
+};
+
+const cancelReview = () => {
+    if (reviewForm.processing) return;
+    pendingReview.value = null;
+    reviewForm.clearErrors();
+};
+
+const confirmReview = () => {
+    if (! pendingReview.value || reviewForm.processing) {
+        return;
+    }
+
+    if (pendingReview.value.action === 'reject' && ! reviewForm.remarks?.trim()) {
+        reviewForm.setError('remarks', 'Please provide a reason for rejecting the application.');
+        return;
+    }
+
+    const routeName = pendingReview.value.action === 'accept'
+        ? 'admin.applications.approve-applicant'
+        : 'admin.applications.reject-applicant';
+
+    reviewForm.post(route(routeName, pendingReview.value.row.id), {
+        preserveScroll: true,
+        onFinish: () => {
+            pendingReview.value = null;
+            reviewForm.reset('remarks');
+        },
+    });
+};
+
+const acceptMessage = computed(() => {
+    const row = pendingReview.value?.row;
+    if (! row) {
+        return '';
+    }
+
+    const name = row.applicant?.full_name || 'this applicant';
+
+    return `Accept ${name} so they can continue this application? Sign-in details will be emailed if the account is still pending.`;
+});
+
 const cards = [
     { key: 'total', label: 'Total', tone: 'blue', filter: '' },
-    { key: 'draft', label: 'Draft (new)', tone: 'gray', filter: 'draft' },
     { key: 'in_progress', label: 'In progress', tone: 'yellow', filter: 'under_verification' },
     { key: 'approved', label: 'Approved', tone: 'green', filter: 'approved' },
     { key: 'rejected', label: 'Rejected / Cancelled', tone: 'red', filter: 'rejected' },
@@ -162,14 +236,49 @@ const toneClass = (tone) => ({
     green: 'border-l-gov-success text-green-700',
     red: 'border-l-gov-danger text-red-700',
 }[tone] || 'border-l-gov-blue text-gov-blue');
+
+const emptyMessage = computed(() => (
+    isIncoming.value
+        ? 'No incoming applications are waiting for acceptance.'
+        : 'No applications match the current filters.'
+));
 </script>
 
 <template>
     <AdminLayout>
-        <Head title="Applications" />
-        <PageHeader title="Application Management" kicker="All filings" />
+        <Head :title="isIncoming ? 'Incoming applications' : 'Applications'" />
+        <PageHeader
+            :title="isIncoming ? 'Incoming Applications' : 'Application Management'"
+            :kicker="isIncoming ? 'Accept or reject new filings' : 'All filings'"
+        />
 
-        <div class="mb-4 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div class="mb-4 flex flex-wrap border-b-2 border-gov-border" role="tablist" aria-label="Application lists">
+            <button
+                type="button"
+                role="tab"
+                class="relative -mb-[2px] px-4 py-2.5 text-sm font-bold uppercase tracking-wide"
+                :class="! isIncoming ? 'border-b-2 border-gov-blue text-gov-blue' : 'text-gov-muted hover:text-gov-dark'"
+                :aria-selected="(! isIncoming).toString()"
+                @click="switchTab('all')"
+            >
+                All applications
+            </button>
+            <button
+                type="button"
+                role="tab"
+                class="relative -mb-[2px] inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold uppercase tracking-wide"
+                :class="isIncoming ? 'border-b-2 border-gov-blue text-gov-blue' : 'text-gov-muted hover:text-gov-dark'"
+                :aria-selected="isIncoming.toString()"
+                @click="switchTab('incoming')"
+            >
+                Incoming
+                <span class="inline-flex min-w-[1.25rem] items-center justify-center bg-gov-warning px-1.5 py-0.5 text-[11px] font-bold text-white">
+                    {{ counts.incoming ?? 0 }}
+                </span>
+            </button>
+        </div>
+
+        <div class="mb-4 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
             <button
                 v-for="card in cards"
                 :key="card.key"
@@ -183,10 +292,14 @@ const toneClass = (tone) => ({
             </button>
         </div>
 
+        <p v-if="isIncoming" class="mb-4 text-sm text-gov-muted">
+            New applications stay here until the office accepts or rejects them. Accepted filings move to All applications.
+        </p>
+
         <form class="panel mb-4" @submit.prevent="applyFilters">
-            <div class="grid gap-3 p-4 md:grid-cols-3">
+            <div class="grid gap-3 p-4" :class="isIncoming ? 'md:grid-cols-2' : 'md:grid-cols-3'">
                 <div><label>Search</label><input v-model="form.q" placeholder="Name or number"></div>
-                <div>
+                <div v-if="! isIncoming">
                     <label>Status</label>
                     <select v-model="form.status">
                         <option value="">All</option>
@@ -266,6 +379,20 @@ const toneClass = (tone) => ({
                     <td data-label="Action" class="whitespace-nowrap text-right">
                         <div class="flex flex-wrap justify-end gap-2">
                             <Link class="btn-secondary btn-sm" :href="route('admin.applications.show', row.id)">Open</Link>
+                            <template v-if="isIncoming && canAccept">
+                                <button
+                                    class="btn-success btn-sm"
+                                    type="button"
+                                    :disabled="reviewForm.processing"
+                                    @click="requestAccept(row)"
+                                >Accept</button>
+                                <button
+                                    class="btn-danger btn-sm"
+                                    type="button"
+                                    :disabled="reviewForm.processing"
+                                    @click="requestReject(row)"
+                                >Reject</button>
+                            </template>
                             <button
                                 v-if="canDelete"
                                 type="button"
@@ -276,7 +403,7 @@ const toneClass = (tone) => ({
                     </td>
                 </tr>
                 <tr v-if="!applications.data.length">
-                    <td :colspan="canDelete ? 9 : 8" class="px-4 py-6 text-center text-sm text-gov-muted">No applications match the current filters.</td>
+                    <td :colspan="canDelete ? 9 : 8" class="px-4 py-6 text-center text-sm text-gov-muted">{{ emptyMessage }}</td>
                 </tr>
             </tbody>
         </table>
@@ -293,5 +420,41 @@ const toneClass = (tone) => ({
             @confirm="confirmDelete"
             @cancel="cancelDelete"
         />
+
+        <ConfirmModal
+            :show="pendingReview?.action === 'accept'"
+            tone="success"
+            title="Accept application"
+            :message="acceptMessage"
+            confirm-label="Accept application"
+            cancel-label="Cancel"
+            :processing="reviewForm.processing"
+            @confirm="confirmReview"
+            @cancel="cancelReview"
+        />
+
+        <Modal :show="pendingReview?.action === 'reject'" title="Reject application" @close="cancelReview">
+            <form class="space-y-4 p-4" @submit.prevent="confirmReview">
+                <p class="text-sm text-gov-text">
+                    Reject application {{ pendingReview?.row?.application_no }}?
+                    The applicant will be notified by email with your remarks.
+                </p>
+                <div>
+                    <label for="incoming-reject-remarks">Reason for rejection</label>
+                    <textarea
+                        id="incoming-reject-remarks"
+                        v-model="reviewForm.remarks"
+                        rows="3"
+                        required
+                        placeholder="Required"
+                    />
+                    <p v-if="reviewForm.errors.remarks" class="field-error">{{ reviewForm.errors.remarks }}</p>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button class="btn-ghost" type="button" :disabled="reviewForm.processing" @click="cancelReview">Cancel</button>
+                    <button class="btn-danger" type="submit" :disabled="reviewForm.processing">Yes, reject</button>
+                </div>
+            </form>
+        </Modal>
     </AdminLayout>
 </template>

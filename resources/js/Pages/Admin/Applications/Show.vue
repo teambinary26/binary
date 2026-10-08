@@ -320,7 +320,10 @@ const showDetails = ref(false);
         <Head :title="application.application_no" />
         <PageHeader :title="application.application_no" kicker="Application record" :document-no="application.program?.name">
             <template #actions>
-                <Link class="btn-ghost btn-sm" :href="route('admin.applications.index')">
+                <Link
+                    class="btn-ghost btn-sm"
+                    :href="route('admin.applications.index', application.status === 'draft' ? { tab: 'incoming' } : {})"
+                >
                     &larr; Back to applications
                 </Link>
                 <Link
@@ -375,7 +378,7 @@ const showDetails = ref(false);
                                 (<strong>{{ application.applicant_detail?.email }}</strong>)
                             </template>.
                         </p>
-                        <div v-if="abilities.approve">
+                        <div v-if="abilities.accept">
                             <label>Remarks (required when rejecting)</label>
                             <textarea v-model="initialReview.remarks" rows="2" placeholder="Optional note for acceptance, required for rejection" />
                             <p v-if="initialReview.errors.remarks" class="field-error">{{ initialReview.errors.remarks }}</p>
@@ -591,6 +594,8 @@ const showDetails = ref(false);
                         <span class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gov-blue text-[10px] font-bold text-white">2</span>
                         Step 2: Evaluation
                     </div>
+                    <p v-if="!abilities.evaluate" class="px-4 py-3 text-sm italic text-gov-muted">You are not assigned to this step.</p>
+                    <template v-else>
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -731,6 +736,7 @@ const showDetails = ref(false);
                         </div>
                     </form>
                     <p v-else-if="!application.latest_evaluation && !application.is_in_evaluation" class="px-4 py-3 text-sm italic text-gov-muted">Awaiting previous step.</p>
+                    </template>
                 </div>
 
                 <!-- Step 3: Approval -->
@@ -739,7 +745,8 @@ const showDetails = ref(false);
                         <span class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gov-blue text-[10px] font-bold text-white">3</span>
                         Step 3: Approval
                     </div>
-                    <div class="panel-body">
+                    <p v-if="!abilities.approve" class="px-4 py-3 text-sm italic text-gov-muted">You are not assigned to this step.</p>
+                    <div v-else class="panel-body">
                         <p v-if="application.latest_evaluation" class="mb-3 text-sm">
                             Evaluator remarks: {{ application.latest_evaluation.remarks }} · Recommended amount {{ application.latest_evaluation.recommended_amount_formatted }}
                         </p>

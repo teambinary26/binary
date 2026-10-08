@@ -205,9 +205,6 @@ const confirmRemove = () => {
                     </p>
                     <p v-if="form.errors.role_id" class="field-error">{{ form.errors.role_id }}</p>
                 </div>
-                <label class="flex items-center gap-2 self-end pb-2 text-sm font-normal normal-case tracking-normal">
-                    <input v-model="form.is_active" type="checkbox"> Active
-                </label>
                 <div>
                     <label for="user-password">Password</label>
                     <PasswordInput id="user-password" v-model="form.password" autocomplete="new-password" required />
@@ -216,6 +213,12 @@ const confirmRemove = () => {
                 <div>
                     <label for="user-password-confirmation">Confirm password</label>
                     <PasswordInput id="user-password-confirmation" v-model="form.password_confirmation" autocomplete="new-password" required />
+                </div>
+                <div class="md:col-span-2">
+                    <label for="user-active" class="inline-flex items-center gap-2 text-sm font-normal normal-case tracking-normal">
+                        <input id="user-active" v-model="form.is_active" type="checkbox">
+                        Active
+                    </label>
                 </div>
                 <div class="flex flex-col-reverse gap-2 border-t border-gov-border pt-4 md:col-span-2 sm:flex-row sm:justify-end">
                     <button class="btn-ghost" type="button" :disabled="form.processing" @click="closeCreate">Cancel</button>

@@ -80,6 +80,11 @@ enum ApplicationStatus: string
         return ! in_array($this, [self::Draft, self::Completed, self::Rejected, self::Cancelled], true);
     }
 
+    public function isIncoming(): bool
+    {
+        return $this === self::Draft;
+    }
+
     /**
      * Statuses that count as the applicant's current program (blocks applying to another).
      *

@@ -3,7 +3,6 @@
 namespace App\Http\Middleware;
 
 use App\Enums\WorkflowStep;
-use App\Models\Permission;
 use App\Models\SystemNotification;
 use App\Models\WorkflowStaff;
 use App\Support\TurnstileVerifier;
@@ -68,9 +67,7 @@ class HandleInertiaRequests extends Middleware
                     'is_sk' => $user->isSk(),
                     'role_name' => $user->role?->name,
                     'role_slug' => $user->role?->slug,
-                    'permissions' => $user->isAdmin()
-                        ? Permission::query()->pluck('slug')->values()->all()
-                        : ($user->role?->permissions->pluck('slug')->values()->all() ?? []),
+                    'permissions' => $user->permissionSlugs(),
                     'workflow_steps' => $user->isAdmin()
                         ? collect(WorkflowStep::ordered())->pluck('value')->all()
                         : WorkflowStaff::query()

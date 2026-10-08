@@ -104,9 +104,9 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/applications/{application}/decide', [Admin\ApplicationController::class, 'decide'])
         ->middleware('permission:applications.approve')->name('applications.decide');
     Route::post('/applications/{application}/approve-applicant', [Admin\ApplicationController::class, 'approveApplicant'])
-        ->middleware('permission:applications.approve')->name('applications.approve-applicant');
+        ->middleware('permission:applications.accept')->name('applications.approve-applicant');
     Route::post('/applications/{application}/reject-applicant', [Admin\ApplicationController::class, 'rejectApplicant'])
-        ->middleware('permission:applications.approve')->name('applications.reject-applicant');
+        ->middleware('permission:applications.accept')->name('applications.reject-applicant');
 
     Route::get('/workflow', [Admin\WorkflowController::class, 'index'])->middleware('permission:applications.view')->name('workflow.index');
     Route::get('/verification', [Admin\VerificationController::class, 'index'])->middleware('permission:applications.verify')->name('verification.index');

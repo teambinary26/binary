@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\WorkflowStep;
 use App\Http\Controllers\Controller;
 use App\Models\Permission;
 use App\Models\Role;
@@ -17,9 +18,11 @@ class RoleController extends Controller
     public function index(): Response
     {
         Role::ensureSk();
+        $this->ensureIncomingReviewPermission();
 
         $roles = Role::query()->with('permissions')->withCount('users')->orderBy('name')->get();
         $catalog = Permission::query()
+            ->whereNotIn('slug', WorkflowStep::actionPermissions())
             ->orderBy('module')
             ->orderBy('name')
             ->get()
@@ -67,7 +70,8 @@ class RoleController extends Controller
         ]);
 
         $slugs = collect($data['permission_slugs'] ?? [])
-            ->reject(fn (string $slug) => in_array($slug, $this->lockedStaffSlugs(), true))
+            ->reject(fn (string $slug) => in_array($slug, $this->lockedStaffSlugs(), true)
+                || in_array($slug, WorkflowStep::actionPermissions(), true))
             ->push('dashboard.view');
 
         foreach ($this->impliedViews() as $action => $view) {
@@ -101,6 +105,21 @@ class RoleController extends Controller
         return ['roles.manage'];
     }
 
+    private function ensureIncomingReviewPermission(): void
+    {
+        $permission = Permission::query()->updateOrCreate(
+            ['slug' => 'applications.accept'],
+            ['name' => 'Accept or reject incoming applications', 'module' => 'Applications'],
+        );
+
+        if ($permission->wasRecentlyCreated) {
+            Role::query()
+                ->whereIn('slug', ['administrator', 'staff'])
+                ->get()
+                ->each(fn (Role $role) => $role->permissions()->syncWithoutDetaching([$permission->id]));
+        }
+    }
+
     /**
      * @return array<string, string>
      */
@@ -108,10 +127,8 @@ class RoleController extends Controller
     {
         return [
             'applicants.manage' => 'applicants.view',
+            'applications.accept' => 'applications.view',
             'applications.manage' => 'applications.view',
-            'applications.verify' => 'applications.view',
-            'applications.evaluate' => 'applications.view',
-            'applications.approve' => 'applications.view',
             'programs.manage' => 'programs.view',
             'releases.manage' => 'releases.view',
             'releases.verify' => 'releases.view',

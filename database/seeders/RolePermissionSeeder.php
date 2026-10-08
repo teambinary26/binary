@@ -16,6 +16,7 @@ class RolePermissionSeeder extends Seeder
             ['View applicants', 'applicants.view', 'Beneficiaries'],
             ['Manage applicants', 'applicants.manage', 'Beneficiaries'],
             ['View applications', 'applications.view', 'Applications'],
+            ['Accept or reject incoming applications', 'applications.accept', 'Applications'],
             ['Manage applications', 'applications.manage', 'Applications'],
             ['Verify documents', 'applications.verify', 'Applications'],
             ['Evaluate applications', 'applications.evaluate', 'Applications'],
@@ -56,8 +57,7 @@ class RolePermissionSeeder extends Seeder
                 'permissions' => [
                     'dashboard.view',
                     'applicants.view', 'applicants.manage',
-                    'applications.view', 'applications.manage',
-                    'applications.verify', 'applications.evaluate', 'applications.approve',
+                    'applications.view', 'applications.accept', 'applications.manage',
                     'programs.view',
                     'releases.view', 'releases.manage', 'releases.verify',
                     'reports.view',
@@ -71,7 +71,6 @@ class RolePermissionSeeder extends Seeder
                     'dashboard.view',
                     'applicants.view',
                     'applications.view',
-                    'applications.verify',
                 ],
             ],
             'applicant' => [

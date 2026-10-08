@@ -98,7 +98,7 @@ const initials = (name) => name
             <div class="panel-h">Workflow Staff Assignment</div>
             <div class="panel-body space-y-4">
                 <p class="text-sm text-gov-muted">
-                    Turn a step on for each person. They can open only the steps that are on. Steps that stay off are closed for them. Administrators can still open every step.
+                    Turn a step on for each person. That is what lets them verify, evaluate, or approve. Roles &amp; Permissions only chooses which pages a role can open. Administrators can still open every step.
                 </p>
 
                 <div class="grid gap-3 md:grid-cols-3">

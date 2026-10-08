@@ -508,3 +508,40 @@ test('a person can open only the workflow steps they are assigned to', function 
     $this->actingAs($staff)->get(route('admin.evaluation.index'))->assertOk();
     $this->actingAs($staff)->get(route('admin.approvals.index'))->assertForbidden();
 });
+
+test('workflow assignment grants step actions without role checkboxes', function () {
+    $sk = User::query()->where('email', 'sk@nabua.gov.ph')->firstOrFail();
+    $skRole = $sk->role;
+    $keep = $skRole->permissions
+        ->pluck('id', 'slug')
+        ->except(['applications.verify', 'applications.evaluate', 'applications.approve']);
+    $skRole->permissions()->sync($keep->values());
+    $sk->unsetRelation('role');
+    $sk->refresh();
+
+    expect(WorkflowStaff::isAssignedToStep($sk->id, WorkflowStep::Verification))->toBeTrue()
+        ->and($sk->hasPermission('applications.verify'))->toBeTrue()
+        ->and($sk->hasPermission('applications.evaluate'))->toBeFalse();
+
+    $this->actingAs($sk)->get(route('admin.verification.index'))->assertOk();
+    $this->actingAs($sk)->get(route('admin.evaluation.index'))->assertForbidden();
+});
+
+test('sk assigned only to verification cannot open evaluation on an application', function () {
+    $sk = User::query()->where('email', 'sk@nabua.gov.ph')->firstOrFail();
+    $application = Application::query()->firstOrFail();
+
+    expect(WorkflowStaff::isAssignedToStep($sk->id, WorkflowStep::Verification))->toBeTrue()
+        ->and(WorkflowStaff::isAssignedToStep($sk->id, WorkflowStep::Evaluation))->toBeFalse();
+
+    $this->actingAs($sk)
+        ->get(route('admin.applications.show', $application))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('abilities.verify', true)
+            ->where('abilities.evaluate', false)
+            ->where('abilities.approve', false)
+            ->where('abilities.accept', false)
+            ->where('abilities.manage', false)
+        );
+});

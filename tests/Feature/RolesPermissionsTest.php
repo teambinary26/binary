@@ -30,7 +30,6 @@ test('admin can open roles and update staff page access', function () {
             'permission_slugs' => [
                 'dashboard.view',
                 'applications.view',
-                'applications.verify',
             ],
         ])
         ->assertRedirect(route('admin.roles.index'))
@@ -41,7 +40,7 @@ test('admin can open roles and update staff page access', function () {
     expect($staffRole->permissions->pluck('slug')->all())
         ->toContain('dashboard.view')
         ->toContain('applications.view')
-        ->toContain('applications.verify')
+        ->not->toContain('applications.verify')
         ->not->toContain('programs.view')
         ->not->toContain('roles.manage');
 });
@@ -81,7 +80,6 @@ test('admin can choose which pages the sangguniang kabataan role can open', func
             'permission_slugs' => [
                 'dashboard.view',
                 'applications.view',
-                'applications.verify',
                 'programs.view',
             ],
         ])
@@ -100,6 +98,72 @@ test('admin can choose which pages the sangguniang kabataan role can open', func
 
     $this->actingAs($skUser)->get(route('admin.programs.index'))->assertOk();
     $this->actingAs($skUser)->get(route('admin.users.index'))->assertForbidden();
+});
+
+test('verification evaluation and approval are assigned in workflow settings not roles', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $staffRole = Role::query()->where('slug', 'staff')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.roles.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('catalog', function ($catalog) {
+                $slugs = collect($catalog)->flatMap(fn ($module) => $module['permissions'] ?? [])->pluck('slug');
+
+                return $slugs->contains('applications.view')
+                    && $slugs->contains('applications.accept')
+                    && $slugs->contains('applications.manage')
+                    && ! $slugs->contains('applications.verify')
+                    && ! $slugs->contains('applications.evaluate')
+                    && ! $slugs->contains('applications.approve');
+            })
+        );
+
+    $this->actingAs($admin)
+        ->from(route('admin.roles.index'))
+        ->put(route('admin.roles.update', $staffRole), [
+            'permission_slugs' => [
+                'dashboard.view',
+                'applications.view',
+                'applications.verify',
+                'applications.evaluate',
+                'applications.approve',
+            ],
+        ])
+        ->assertRedirect(route('admin.roles.index'));
+
+    expect($staffRole->refresh()->load('permissions')->permissions->pluck('slug')->all())
+        ->toContain('applications.view')
+        ->not->toContain('applications.verify')
+        ->not->toContain('applications.evaluate')
+        ->not->toContain('applications.approve');
+});
+
+test('admin can let staff and sk accept or reject incoming applications', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $sk = User::query()->where('email', 'sk@nabua.gov.ph')->firstOrFail();
+    $skRole = Role::query()->where('slug', 'sk')->firstOrFail();
+    $staff = User::query()->where('email', 'staff@nabua.gov.ph')->firstOrFail();
+
+    expect($staff->hasPermission('applications.accept'))->toBeTrue()
+        ->and($sk->hasPermission('applications.accept'))->toBeFalse();
+
+    $this->actingAs($admin)
+        ->from(route('admin.roles.index'))
+        ->put(route('admin.roles.update', $skRole), [
+            'permission_slugs' => [
+                'dashboard.view',
+                'applications.view',
+                'applications.accept',
+            ],
+        ])
+        ->assertRedirect(route('admin.roles.index'));
+
+    $sk->unsetRelation('role');
+    $sk->refresh();
+
+    expect($sk->hasPermission('applications.accept'))->toBeTrue();
 });
 
 test('administrator and applicant roles cannot be edited from this page', function () {

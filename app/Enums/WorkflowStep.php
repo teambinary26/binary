@@ -44,6 +44,24 @@ enum WorkflowStep: string
         };
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function actionPermissions(): array
+    {
+        return array_map(fn (self $step) => $step->permission(), self::ordered());
+    }
+
+    public static function tryFromPermission(string $permission): ?self
+    {
+        return match ($permission) {
+            'applications.verify' => self::Verification,
+            'applications.evaluate' => self::Evaluation,
+            'applications.approve' => self::Approval,
+            default => null,
+        };
+    }
+
     public function order(): int
     {
         return match ($this) {

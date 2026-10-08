@@ -14,7 +14,6 @@ class Role extends Model
         'dashboard.view',
         'applicants.view',
         'applications.view',
-        'applications.verify',
     ];
 
     protected $fillable = ['name', 'slug', 'description'];

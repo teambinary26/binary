@@ -85,7 +85,7 @@ const saveLabel = (role) => (role.slug === 'sk' ? 'Save SK access' : `Save ${rol
         <div v-for="role in editableRoles" :key="role.id" class="panel mb-4">
             <div class="panel-h">{{ role.name }} <span class="font-normal normal-case tracking-normal">({{ role.users_count }} users)</span></div>
             <form class="panel-body space-y-4 text-sm" @submit.prevent="saveAccess(role)">
-                <p class="text-gov-muted">{{ role.description }} Tick the pages and actions this account may use. Dashboard stays available so they can sign in.</p>
+                <p class="text-gov-muted">{{ role.description }} Tick the pages and actions this account may use. Dashboard stays available so they can sign in. Verification, evaluation, and approval are assigned per person in System Settings, not here.</p>
                 <div class="grid gap-4 lg:grid-cols-2">
                     <section v-for="module in catalog" :key="`${role.id}-${module.module}`" class="border border-gov-border">
                         <div class="flex items-center justify-between border-b border-gov-border bg-gov-off px-3 py-2">
@@ -109,6 +109,7 @@ const saveLabel = (role) => (role.slug === 'sk' ? 'Save SK access' : `Save ${rol
                                     <span class="font-semibold text-gov-dark">{{ permission.name }}</span>
                                     <span v-if="permission.locked" class="mt-0.5 block text-xs text-gov-muted">Administrators only</span>
                                     <span v-else-if="permission.slug === 'dashboard.view'" class="mt-0.5 block text-xs text-gov-muted">Required for sign-in</span>
+                                    <span v-else-if="permission.slug === 'applications.accept'" class="mt-0.5 block text-xs text-gov-muted">Lets this role accept or reject new applications before verification.</span>
                                 </label>
                             </li>
                         </ul>

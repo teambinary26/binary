@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\WorkflowStep;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -116,6 +117,44 @@ class User extends Authenticatable
             return true;
         }
 
+        $step = WorkflowStep::tryFromPermission($permission);
+        if ($step) {
+            return $this->roleHasPermission('applications.view')
+                && WorkflowStaff::isAssignedToStep($this->id, $step);
+        }
+
+        return $this->roleHasPermission($permission);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function permissionSlugs(): array
+    {
+        if (! $this->is_active) {
+            return [];
+        }
+
+        if ($this->isAdmin()) {
+            return Permission::query()->pluck('slug')->values()->all();
+        }
+
+        $this->loadMissing('role.permissions');
+        $slugs = collect($this->role?->permissions->pluck('slug')->all() ?? [])
+            ->reject(fn (string $slug) => WorkflowStep::tryFromPermission($slug) !== null)
+            ->values();
+
+        foreach (WorkflowStep::ordered() as $step) {
+            if ($this->hasPermission($step->permission())) {
+                $slugs->push($step->permission());
+            }
+        }
+
+        return $slugs->unique()->values()->all();
+    }
+
+    private function roleHasPermission(string $permission): bool
+    {
         $this->loadMissing('role.permissions');
 
         return $this->role?->permissions->contains('slug', $permission) ?? false;
