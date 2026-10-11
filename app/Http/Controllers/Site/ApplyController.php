@@ -141,6 +141,8 @@ class ApplyController extends Controller
             $data['pwd_type_detail'] = null;
         }
 
+        $data = array_merge($data, lgu_residence());
+
         if (($data['beneficiary_type'] ?? null) === 'non_student') {
             $data['school_name'] = null;
             $data['course_or_program'] = null;

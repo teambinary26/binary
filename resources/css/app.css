@@ -85,6 +85,10 @@
         @apply cursor-not-allowed bg-gov-off text-gov-muted;
     }
 
+    input:read-only, textarea:read-only {
+        @apply cursor-default bg-gov-off text-gov-text;
+    }
+
     label {
         @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-gov-dark;
     }

@@ -1,4 +1,7 @@
 <script setup>
+import { computed, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+
 const props = defineProps({
     fields: { type: Array, default: () => [] },
     model: { type: Object, required: true },
@@ -7,8 +10,25 @@ const props = defineProps({
     disabledNames: { type: Array, default: () => [] },
 });
 
+const page = usePage();
+const residence = computed(() => ({
+    municipality: page.props.gov?.residence?.municipality || 'Nabua',
+    province: page.props.gov?.residence?.province || 'Camarines Sur',
+}));
+
 const errorFor = (name) => props.errors[`${props.errorPrefix}${name}`];
-const isDisabled = (name) => props.disabledNames.includes(name);
+const isResidenceField = (name) => name === 'municipality' || name === 'province';
+const isDisabled = (name) => props.disabledNames.includes(name) || isResidenceField(name);
+const lockedValue = (name) => (name === 'province' ? residence.value.province : residence.value.municipality);
+
+watch(residence, (value) => {
+    if (Object.hasOwn(props.model, 'municipality')) {
+        props.model.municipality = value.municipality;
+    }
+    if (Object.hasOwn(props.model, 'province')) {
+        props.model.province = value.province;
+    }
+}, { immediate: true });
 </script>
 
 <template>
@@ -40,6 +60,15 @@ const isDisabled = (name) => props.disabledNames.includes(name);
                 <option value="">Select</option>
                 <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
             </select>
+            <input
+                v-else-if="isResidenceField(field.name)"
+                :id="`field_${field.name}`"
+                :value="lockedValue(field.name)"
+                type="text"
+                disabled
+                spellcheck="false"
+                autocomplete="off"
+            >
             <input
                 v-else
                 :id="`field_${field.name}`"

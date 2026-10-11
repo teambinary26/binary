@@ -76,3 +76,18 @@ if (! function_exists('gov')) {
         return $config[$key] ?? $default;
     }
 }
+
+if (! function_exists('lgu_residence')) {
+    /**
+     * Fixed LGU address used on application and registration forms.
+     *
+     * @return array{municipality: string, province: string}
+     */
+    function lgu_residence(): array
+    {
+        return [
+            'municipality' => (string) config('cams.residence.municipality', 'Nabua'),
+            'province' => (string) config('cams.residence.province', 'Camarines Sur'),
+        ];
+    }
+}

@@ -137,6 +137,8 @@ test('apply page includes eligibility details for an open program', function () 
             ->has('program.eligibility')
             ->has('program.eligibility_rules')
             ->has('program.form_fields')
+            ->where('gov.residence.municipality', 'Nabua')
+            ->where('gov.residence.province', 'Camarines Sur')
         );
 });
 
@@ -220,11 +222,38 @@ test('guest can apply with otp and the record is stored as a draft', function ()
         ->and($application->applicant->profile->mother_name)->toBe('Rosa Applicant')
         ->and($application->applicant->profile->course_or_program)->toBe('General Academic Strand')
         ->and($application->applicant->profile->year_level)->toBe('Grade 12')
-        ->and($application->applicant->profile->is_pwd)->toBeFalse();
+        ->and($application->applicant->profile->is_pwd)->toBeFalse()
+        ->and($application->applicant->primaryAddress->municipality)->toBe('Nabua')
+        ->and($application->applicant->primaryAddress->province)->toBe('Camarines Sur');
 
     Mail::assertSent(ApplicationReceivedMail::class, function (ApplicationReceivedMail $mail) {
         return $mail->hasTo('ana.public@example.com') && blank($mail->password);
     });
+});
+
+test('public apply stores nabua camarines sur even if another municipality is posted', function () {
+    $program = openStudentProgram();
+
+    $this->postJson(route('site.apply.otp', $program), [
+        'turnstile_token' => 'test-token',
+        'full_name' => 'Ana Public Applicant',
+        'email' => 'ana.residence@example.com',
+    ])->assertOk();
+
+    $otp = capturedOtp('ana.residence@example.com');
+
+    $this->post((string) route('site.apply.store', $program), publicApplyFields($otp, [
+        'email' => 'ana.residence@example.com',
+        'municipality' => 'Iriga',
+        'province' => 'Albay',
+    ]))->assertRedirect(route('site.apply.success'));
+
+    $application = Application::query()
+        ->whereHas('applicant', fn ($query) => $query->where('email', 'ana.residence@example.com'))
+        ->firstOrFail();
+
+    expect($application->applicant->primaryAddress->municipality)->toBe('Nabua')
+        ->and($application->applicant->primaryAddress->province)->toBe('Camarines Sur');
 });
 
 test('pending applicant cannot log in until an admin approves', function () {

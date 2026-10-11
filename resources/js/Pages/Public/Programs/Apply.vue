@@ -5,6 +5,7 @@ import { route } from 'ziggy-js';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import Turnstile from '@/Components/Turnstile.vue';
 import ProgramFormFields from '@/Components/ProgramFormFields.vue';
+import LguResidenceFields from '@/Components/LguResidenceFields.vue';
 import { currentCsrfToken } from '@/bootstrap';
 import { useNotify } from '@/composables/useNotify';
 
@@ -18,6 +19,10 @@ const { notify } = useNotify();
 const auth = computed(() => page.props.auth?.user);
 const barangays = computed(() => page.props.gov?.barangays ?? []);
 const pwdTypes = computed(() => page.props.gov?.pwd_types ?? {});
+const residence = computed(() => ({
+    municipality: page.props.gov?.residence?.municipality || 'Nabua',
+    province: page.props.gov?.residence?.province || 'Camarines Sur',
+}));
 
 const step = ref(1);
 const otpSent = ref(false);
@@ -154,8 +159,8 @@ const form = useForm({
     sex: '',
     street: '',
     barangay: '',
-    municipality: 'Nabua',
-    province: 'Camarines Sur',
+    municipality: page.props.gov?.residence?.municipality || 'Nabua',
+    province: page.props.gov?.residence?.province || 'Camarines Sur',
     contact_number: '',
     email: '',
     mother_name: '',
@@ -406,9 +411,13 @@ const submit = () => {
     syncProfileAnswers();
     form.otp = otpDigits.value.join('');
     form.turnstile_token = turnstileToken.value;
+    form.municipality = residence.value.municipality;
+    form.province = residence.value.province;
     form.transform((data) => ({
         ...data,
         full_name: fullName.value,
+        municipality: residence.value.municipality,
+        province: residence.value.province,
         turnstile_token: turnstileToken.value,
         eligibility_confirmed: data.eligibility_confirmed ? 1 : 0,
         is_pwd: data.is_pwd ? 1 : 0,
@@ -557,14 +566,7 @@ const submit = () => {
                                     </select>
                                     <p v-if="form.errors.barangay" class="field-error">{{ form.errors.barangay }}</p>
                                 </div>
-                                <div>
-                                    <label>Municipality</label>
-                                    <input v-model="form.municipality" type="text">
-                                </div>
-                                <div>
-                                    <label>Province</label>
-                                    <input v-model="form.province" type="text">
-                                </div>
+                                <LguResidenceFields />
                             </div>
                         </section>
 

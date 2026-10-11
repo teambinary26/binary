@@ -42,6 +42,8 @@ class RegisterController extends Controller
             'beneficiary_type' => ['required', 'in:student,non_student'],
         ]);
 
+        $data = array_merge($data, lgu_residence());
+
         $roleId = Role::query()->where('slug', 'applicant')->value('id');
 
         $user = DB::transaction(function () use ($data, $roleId, $applications) {

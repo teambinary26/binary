@@ -1,14 +1,21 @@
 <script setup>
 import { computed, watch } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import ApplicantLayout from '@/Layouts/ApplicantLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
+import LguResidenceFields from '@/Components/LguResidenceFields.vue';
 
 const props = defineProps({
     applicant: { type: Object, required: true },
     barangays: { type: Array, default: () => [] },
 });
+
+const page = usePage();
+const residence = computed(() => ({
+    municipality: page.props.gov?.residence?.municipality || 'Nabua',
+    province: page.props.gov?.residence?.province || 'Camarines Sur',
+}));
 
 const form = useForm({
     full_name: props.applicant.full_name,
@@ -18,8 +25,8 @@ const form = useForm({
     beneficiary_type: props.applicant.beneficiary_type,
     street: props.applicant.street,
     barangay: props.applicant.barangay,
-    municipality: props.applicant.municipality,
-    province: props.applicant.province,
+    municipality: page.props.gov?.residence?.municipality || 'Nabua',
+    province: page.props.gov?.residence?.province || 'Camarines Sur',
     school_name: props.applicant.school_name || '',
     course_or_program: props.applicant.course_or_program || '',
     year_level: props.applicant.year_level || '',
@@ -35,7 +42,11 @@ watch(() => form.beneficiary_type, (type) => {
     }
 });
 
-const submit = () => form.put(route('applicant.profile.update'));
+const submit = () => {
+    form.municipality = residence.value.municipality;
+    form.province = residence.value.province;
+    form.put(route('applicant.profile.update'));
+};
 </script>
 
 <template>
@@ -68,8 +79,7 @@ const submit = () => form.put(route('applicant.profile.update'));
                         <option v-for="barangay in barangays" :key="barangay" :value="barangay">{{ barangay }}</option>
                     </select>
                 </div>
-                <div><label>Municipality / City</label><input v-model="form.municipality" required></div>
-                <div><label>Province</label><input v-model="form.province" required></div>
+                <LguResidenceFields municipality-label="Municipality / City" />
                 <div><label>School (students)</label><input v-model="form.school_name" :disabled="! isStudent"></div>
                 <div><label>Course / program</label><input v-model="form.course_or_program" :disabled="! isStudent"></div>
                 <div><label>Year / grade level</label><input v-model="form.year_level" :disabled="! isStudent"></div>

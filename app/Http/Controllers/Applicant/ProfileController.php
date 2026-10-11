@@ -40,6 +40,8 @@ class ProfileController extends Controller
             'year_level' => ['nullable', 'string', 'max:50'],
         ]);
 
+        $data = array_merge($data, lgu_residence());
+
         $applicant->update([
             'full_name' => $data['full_name'],
             'date_of_birth' => $data['date_of_birth'],

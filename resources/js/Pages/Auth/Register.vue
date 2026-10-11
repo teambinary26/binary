@@ -1,12 +1,20 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import AuthLayout from '@/Layouts/AuthLayout.vue';
 import PasswordInput from '@/Components/PasswordInput.vue';
+import LguResidenceFields from '@/Components/LguResidenceFields.vue';
 
 const props = defineProps({
     barangays: { type: Array, default: () => [] },
 });
+
+const page = usePage();
+const residence = computed(() => ({
+    municipality: page.props.gov?.residence?.municipality || 'Nabua',
+    province: page.props.gov?.residence?.province || 'Camarines Sur',
+}));
 
 const form = useForm({
     full_name: '',
@@ -14,8 +22,8 @@ const form = useForm({
     sex: '',
     street: '',
     barangay: '',
-    municipality: 'Nabua',
-    province: 'Camarines Sur',
+    municipality: page.props.gov?.residence?.municipality || 'Nabua',
+    province: page.props.gov?.residence?.province || 'Camarines Sur',
     contact_number: '',
     email: '',
     beneficiary_type: 'non_student',
@@ -23,7 +31,11 @@ const form = useForm({
     password_confirmation: '',
 });
 
-const submit = () => form.post(route('register.store'));
+const submit = () => {
+    form.municipality = residence.value.municipality;
+    form.province = residence.value.province;
+    form.post(route('register.store'));
+};
 </script>
 
 <template>
@@ -64,14 +76,7 @@ const submit = () => form.post(route('register.store'));
                                 <option v-for="barangay in props.barangays" :key="barangay" :value="barangay">{{ barangay }}</option>
                             </select>
                         </div>
-                        <div>
-                            <label for="municipality">Municipality / City</label>
-                            <input id="municipality" v-model="form.municipality" type="text" required>
-                        </div>
-                        <div>
-                            <label for="province">Province</label>
-                            <input id="province" v-model="form.province" type="text" required>
-                        </div>
+                        <LguResidenceFields municipality-label="Municipality / City" />
                     </div>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>

@@ -6,6 +6,10 @@ return [
     'republic' => 'Republic of the Philippines',
     'province' => 'Province of Camarines Sur',
     'lgu' => 'Municipality of Nabua',
+    'residence' => [
+        'municipality' => 'Nabua',
+        'province' => 'Camarines Sur',
+    ],
     'agency' => 'Local Youth Development Office of Nabua',
     'agency_short' => 'LYDO',
     'office_description' => 'Local Youth Development Office — Municipality of Nabua',
