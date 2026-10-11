@@ -8,14 +8,14 @@ const props = defineProps({
     description: { type: String, default: '' },
 });
 
-const textClass = computed(() => ({
-    success: 'text-gov-success',
-    warning: 'text-[#8a6400]',
-    danger: 'text-gov-danger',
-    info: 'text-gov-blue',
-}[props.tone] || 'text-gov-muted'));
+const badgeClass = computed(() => ({
+    success: 'badge badge-success',
+    warning: 'badge badge-warning',
+    danger: 'badge badge-danger',
+    info: 'badge badge-info',
+}[props.tone] || 'badge badge-neutral'));
 </script>
 
 <template>
-    <span class="text-xs font-bold uppercase tracking-wide" :class="textClass" :title="description">{{ label || status }}</span>
+    <span :class="badgeClass" :title="description">{{ label || status }}</span>
 </template>

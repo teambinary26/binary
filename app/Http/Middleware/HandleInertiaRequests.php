@@ -30,8 +30,9 @@ class HandleInertiaRequests extends Middleware
 
         $response = parent::handle($request, $next);
 
-        $response->headers->set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+        $response->headers->set('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
         $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
         $response->headers->set('Vary', 'X-Inertia, Accept, Accept-Encoding');
 
         return $response;

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ApplicationStatus;
 use App\Enums\BeneficiaryType;
 use App\Enums\WorkflowStep;
 use App\Models\Applicant;
@@ -85,6 +86,55 @@ test('staff dashboard loads for administrator', function () {
         );
 });
 
+test('applicant tracking hides completed until the office marks the claim finished', function () {
+    $released = Application::query()
+        ->with('applicant.user')
+        ->where('status', ApplicationStatus::Released)
+        ->firstOrFail();
+    $completed = Application::query()
+        ->with('applicant.user')
+        ->where('status', ApplicationStatus::Completed)
+        ->firstOrFail();
+
+    $this->actingAs($released->applicant->user)
+        ->get(route('applicant.applications.show', $released))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Applicant/Applications/Show')
+            ->where('application.status', ApplicationStatus::Released->value)
+            ->where('application.status_label', 'Released')
+            ->where('application.status_tone', 'success')
+            ->where('application.timeline', fn ($steps) => collect($steps)->every(
+                fn ($step) => $step['value'] !== ApplicationStatus::Completed->value
+            ))
+            ->where('application.timeline', fn ($steps) => collect($steps)->contains(
+                fn ($step) => $step['value'] === ApplicationStatus::Released->value && $step['state'] === 'current'
+            ))
+        );
+
+    $this->actingAs($completed->applicant->user)
+        ->get(route('applicant.applications.show', $completed))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('application.status', ApplicationStatus::Completed->value)
+            ->where('application.timeline', fn ($steps) => collect($steps)->contains(
+                fn ($step) => $step['value'] === ApplicationStatus::Completed->value && $step['state'] === 'current'
+            ))
+        );
+
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.applications.show', $released))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('application.status', ApplicationStatus::Released->value)
+            ->where('application.timeline', fn ($steps) => collect($steps)->contains(
+                fn ($step) => $step['value'] === ApplicationStatus::Completed->value && $step['state'] === 'upcoming'
+            ))
+        );
+});
+
 test('applicant dashboard loads for registered beneficiary', function () {
     $user = User::query()->where('email', 'juan.delacruz@email.com')->firstOrFail();
 
@@ -98,6 +148,43 @@ test('applicant dashboard loads for registered beneficiary', function () {
             ->has('applications.links')
             ->has('counts')
         );
+});
+
+test('applicant profile locks municipality and province to nabua camarines sur', function () {
+    $user = User::query()->where('email', 'juan.delacruz@email.com')->firstOrFail();
+    $applicant = $user->applicant()->with(['profile', 'primaryAddress'])->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('applicant.profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Applicant/Profile')
+            ->where('residence.municipality', 'Nabua')
+            ->where('residence.province', 'Camarines Sur')
+        );
+
+    $this->actingAs($user)
+        ->from(route('applicant.profile.edit'))
+        ->put(route('applicant.profile.update'), [
+            'full_name' => $applicant->full_name,
+            'date_of_birth' => $applicant->date_of_birth?->format('Y-m-d'),
+            'sex' => $applicant->sex,
+            'contact_number' => $applicant->contact_number,
+            'street' => $applicant->primaryAddress->street,
+            'barangay' => $applicant->primaryAddress->barangay,
+            'municipality' => 'Iriga',
+            'province' => 'Albay',
+            'beneficiary_type' => $applicant->profile->beneficiary_type->value,
+            'school_name' => $applicant->profile->school_name,
+            'course_or_program' => $applicant->profile->course_or_program,
+            'year_level' => $applicant->profile->year_level,
+        ])
+        ->assertRedirect();
+
+    $address = $applicant->primaryAddress->fresh();
+
+    expect($address->municipality)->toBe('Nabua')
+        ->and($address->province)->toBe('Camarines Sur');
 });
 
 test('staff cannot open user management', function () {
@@ -397,6 +484,30 @@ test('guest visiting the staff dashboard is sent to sign in', function () {
     $this->get('/admin/dashboard')->assertRedirect('/login');
 });
 
+test('logout invalidates the session and blocks protected pages', function () {
+    $user = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $this->actingAs($user)
+        ->post(route('logout'))
+        ->assertRedirect(route('login'));
+
+    $this->assertGuest();
+
+    $this->get('/admin/dashboard')->assertRedirect('/login');
+    $this->get('/applicant/dashboard')->assertRedirect('/login');
+});
+
+test('authenticated pages tell the browser not to keep a usable cache', function () {
+    $user = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $response = $this->actingAs($user)->get('/admin/dashboard');
+
+    $response->assertOk();
+    expect(strtolower((string) $response->headers->get('Cache-Control')))
+        ->toContain('no-store')
+        ->toContain('no-cache');
+});
+
 test('guest sign-in page is reachable', function () {
     $this->get('/login')
         ->assertOk()
@@ -461,6 +572,21 @@ test('inactive staff cannot open the staff dashboard', function () {
     $this->actingAs($user)
         ->get('/admin/dashboard')
         ->assertRedirect('/login');
+});
+
+test('students navigation filters applicants by type', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.applicants.index', ['type' => 'student']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Applicants/Index')
+            ->where('filters.type', 'student')
+            ->where('applicants.data', fn ($rows) => collect($rows)->every(
+                fn ($row) => $row['beneficiary_type'] === 'student'
+            ))
+        );
 });
 
 test('admin can delete a beneficiary without applications', function () {

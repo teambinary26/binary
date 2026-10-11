@@ -179,7 +179,64 @@ test('recording an evaluation sends the application to approval', function () {
 
     expect($application->status)->toBe(ApplicationStatus::ForApproval)
         ->and($application->assigned_staff_id)->toBe($approver?->id)
-        ->and($application->latestEvaluation?->recommendation)->toBe('approval');
+        ->and($application->latestEvaluation?->recommendation)->toBe('approval')
+        ->and((float) $application->latestEvaluation?->recommended_amount)
+        ->toBe((float) $application->program->configuredAmount());
+});
+
+test('evaluation and approval keep the program assistance amount', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $application = Application::query()
+        ->where('status', ApplicationStatus::UnderEvaluation)
+        ->with('program')
+        ->firstOrFail();
+
+    $application->program->update([
+        'amount_type' => 'fixed',
+        'amount' => 2000,
+        'amount_max' => 2000,
+    ]);
+    $application->unsetRelation('program');
+
+    $this->actingAs($admin)
+        ->get(route('admin.applications.show', $application))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('application.program.amount_formatted', peso(2000))
+        );
+
+    $this->actingAs($admin)
+        ->from(route('admin.applications.show', $application))
+        ->post(route('admin.applications.evaluate', $application), [
+            'eligibility_passed' => true,
+            'documents_complete' => true,
+            'assessment' => 'Eligible and complete.',
+            'recommendation' => 'approval',
+            'recommended_amount' => 99999,
+            'remarks' => 'Recommended for approval.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $application->refresh();
+
+    expect((float) $application->latestEvaluation?->recommended_amount)->toBe(2000.0);
+
+    $this->actingAs($admin)
+        ->from(route('admin.applications.show', $application))
+        ->post(route('admin.applications.decide', $application), [
+            'decision' => 'approved',
+            'approved_amount' => 40000000,
+            'remarks' => 'Approved for assistance.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $application->refresh();
+
+    expect($application->status)->toBe(ApplicationStatus::Approved)
+        ->and((float) $application->approved_amount)->toBe(2000.0)
+        ->and((float) $application->latestApproval?->approved_amount)->toBe(2000.0);
 });
 
 test('staff assigned to verification can verify a document', function () {

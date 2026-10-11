@@ -969,10 +969,10 @@ class EligibilityAssessmentService
 
     private function normalize(string $value): string
     {
-        $value = Str::lower($value);
-        $value = preg_replace('/[^a-z0-9\s]/', ' ', $value) ?? $value;
+        $value = mb_strtolower(trim($value), 'UTF-8');
+        $value = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $value) ?? $value;
 
-        return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
     }
 
     private function contains(string $haystack, string $needle): bool

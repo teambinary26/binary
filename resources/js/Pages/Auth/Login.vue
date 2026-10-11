@@ -5,6 +5,7 @@ import { route } from 'ziggy-js';
 import AuthLayout from '@/Layouts/AuthLayout.vue';
 import PasswordInput from '@/Components/PasswordInput.vue';
 import Turnstile from '@/Components/Turnstile.vue';
+import { markSessionActive, markSessionEnded, sessionWasEnded } from '@/authSession';
 
 const page = usePage();
 const turnstileSiteKey = computed(() => page.props.turnstile?.site_key || '');
@@ -42,7 +43,16 @@ const submit = () => {
         return;
     }
 
+    const hadEndedSession = sessionWasEnded();
+
     form.post(route('login.store'), {
+        onBefore: () => markSessionActive(),
+        onError: () => {
+            if (hadEndedSession) {
+                markSessionEnded();
+            }
+        },
+        onSuccess: () => markSessionActive(),
         onFinish: () => {
             form.turnstile_token = '';
             turnstileRef.value?.reset();

@@ -8,6 +8,8 @@ use App\Models\Application;
 use App\Models\AssistanceRelease;
 use App\Models\ReleaseSchedule;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -108,15 +110,82 @@ class ReleaseService
 
     public function recordRelease(Application $application, User $user, array $data): AssistanceRelease
     {
-        $application->loadMissing('latestSchedule');
+        return DB::transaction(function () use ($application, $user, $data) {
+            $application = Application::query()
+                ->whereKey($application->id)
+                ->with(['latestSchedule', 'program'])
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($application->status !== ApplicationStatus::ScheduledForRelease) {
-            throw ValidationException::withMessages([
-                'application' => 'Record the actual release only after this application has been scheduled.',
-            ]);
+            if ($application->status !== ApplicationStatus::ScheduledForRelease) {
+                throw ValidationException::withMessages([
+                    'application' => 'Record the actual release only after this application has been scheduled.',
+                ]);
+            }
+
+            if ($application->releases()->exists()) {
+                throw ValidationException::withMessages([
+                    'application' => 'A release has already been recorded for this application.',
+                ]);
+            }
+
+            $schedule = $this->openScheduleForRecording($application, $data['release_schedule_id'] ?? null);
+            $amount = $application->approved_amount ?? $application->program?->configuredAmount();
+
+            if ($amount === null || $amount === '') {
+                throw ValidationException::withMessages([
+                    'amount' => 'This program has no assistance amount configured.',
+                ]);
+            }
+
+            try {
+                $release = $application->releases()->create([
+                    'release_schedule_id' => $schedule->id,
+                    'amount' => $amount,
+                    'released_at' => $data['released_at'] ?? now(),
+                    'released_by' => $user->id,
+                    'reference_no' => $this->applications->generateNumber(gov('release_prefix', 'REL'), 'assistance_releases', 'reference_no'),
+                    'verification_code' => strtoupper(Str::random(10)),
+                    'remarks' => $data['remarks'] ?? $schedule->notes,
+                ]);
+            } catch (UniqueConstraintViolationException $exception) {
+                throw ValidationException::withMessages([
+                    'application' => 'A release has already been recorded for this application.',
+                ]);
+            }
+
+            $schedule->update(['status' => 'completed']);
+
+            $this->applications->changeStatus($application, ApplicationStatus::Released, $user, 'Assistance released. Reference '.$release->reference_no.'.', 'released');
+
+            $this->notifications->notifyApplicant(
+                $application,
+                'Assistance released',
+                'Assistance for application '.$application->application_no.' has been released. Reference number: '.$release->reference_no.'. Amount: '.peso($amount, false).'.',
+                'success'
+            );
+
+            return $release;
+        });
+    }
+
+    private function openScheduleForRecording(Application $application, mixed $scheduleId): ReleaseSchedule
+    {
+        $schedule = null;
+
+        if (filled($scheduleId)) {
+            $schedule = ReleaseSchedule::query()
+                ->whereKey($scheduleId)
+                ->where('application_id', $application->id)
+                ->lockForUpdate()
+                ->first();
         }
 
-        $schedule = $application->latestSchedule;
+        $schedule ??= ReleaseSchedule::query()
+            ->where('application_id', $application->id)
+            ->latest('id')
+            ->lockForUpdate()
+            ->first() ?? $application->latestSchedule;
 
         if (! $schedule || $schedule->status === 'completed') {
             throw ValidationException::withMessages([
@@ -124,32 +193,13 @@ class ReleaseService
             ]);
         }
 
-        $amount = $data['amount'] ?? $application->approved_amount;
-
-        $release = $application->releases()->create([
-            'release_schedule_id' => $data['release_schedule_id'] ?? $application->latestSchedule?->id,
-            'amount' => $amount,
-            'released_at' => $data['released_at'] ?? now(),
-            'released_by' => $user->id,
-            'reference_no' => $this->applications->generateNumber(gov('release_prefix', 'REL'), 'assistance_releases', 'reference_no'),
-            'verification_code' => strtoupper(Str::random(10)),
-            'remarks' => $data['remarks'] ?? null,
-        ]);
-
-        if ($release->release_schedule_id) {
-            ReleaseSchedule::query()->whereKey($release->release_schedule_id)->update(['status' => 'completed']);
+        if (AssistanceRelease::query()->where('release_schedule_id', $schedule->id)->exists()) {
+            throw ValidationException::withMessages([
+                'application' => 'A release has already been recorded for this schedule.',
+            ]);
         }
 
-        $this->applications->changeStatus($application, ApplicationStatus::Released, $user, 'Assistance released. Reference '.$release->reference_no.'.', 'released');
-
-        $this->notifications->notifyApplicant(
-            $application,
-            'Assistance released',
-            'Assistance for application '.$application->application_no.' has been released. Reference number: '.$release->reference_no.'. Amount: '.peso($amount, false).'.',
-            'success'
-        );
-
-        return $release;
+        return $schedule;
     }
 
     public function verifyClaim(string $lookup, User $user, string $method = 'reference_no'): array

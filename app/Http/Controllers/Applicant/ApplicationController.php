@@ -45,7 +45,7 @@ class ApplicationController extends Controller
         ]);
 
         return Inertia::render('Applicant/Applications/Show', [
-            'application' => CamData::applicationDetail($application),
+            'application' => CamData::applicationDetail($application, applicantFacing: true),
         ]);
     }
 
@@ -60,7 +60,7 @@ class ApplicationController extends Controller
         $application->load(['program.eligibilityRules', 'program.category', 'program.requirements', 'program.formFields']);
 
         return Inertia::render('Applicant/Apply/Eligibility', [
-            'application' => CamData::applicationDetail($application),
+            'application' => CamData::applicationDetail($application, applicantFacing: true),
         ]);
     }
 
@@ -93,7 +93,7 @@ class ApplicationController extends Controller
         }
 
         return Inertia::render('Applicant/Apply/Form', [
-            'application' => CamData::applicationDetail($application),
+            'application' => CamData::applicationDetail($application, applicantFacing: true),
             'fields' => CamData::program($application->program, true)['form_fields'],
             'answers' => $application->answerMap(),
         ]);
@@ -136,7 +136,7 @@ class ApplicationController extends Controller
         $application->load(['program.requirements', 'program.formFields', 'program.category', 'documents.verification', 'documents.ocrResult.fields', 'answers']);
 
         return Inertia::render('Applicant/Apply/Documents', [
-            'application' => CamData::applicationDetail($application),
+            'application' => CamData::applicationDetail($application, applicantFacing: true),
         ]);
     }
 
@@ -187,7 +187,7 @@ class ApplicationController extends Controller
         $application->load(['program.requirements', 'program.formFields', 'program.category', 'answers', 'documents.verification', 'documents.ocrResult.fields', 'applicant.profile', 'applicant.primaryAddress']);
 
         return Inertia::render('Applicant/Apply/Review', [
-            'application' => CamData::applicationDetail($application),
+            'application' => CamData::applicationDetail($application, applicantFacing: true),
         ]);
     }
 

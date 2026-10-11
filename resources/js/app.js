@@ -1,4 +1,5 @@
 import { syncCsrfToken } from './bootstrap';
+import { installAuthSessionGuard } from './authSession';
 import { createApp, h } from 'vue';
 import { createInertiaApp, Link, Head, router } from '@inertiajs/vue3';
 import { ZiggyVue } from 'ziggy-js';
@@ -18,6 +19,7 @@ createInertiaApp({
         delete ziggy.location;
         globalThis.Ziggy = ziggy;
         syncCsrfToken(props.initialPage.props.csrf_token);
+        installAuthSessionGuard(props.initialPage.props.auth?.user);
 
         createApp({ render: () => h(App, props) })
             .use(plugin)

@@ -31,6 +31,8 @@ class EvaluationService
             ]);
         }
 
+        $application->loadMissing('program');
+
         $application->evaluations()->create([
             'evaluator_id' => $user->id,
             'eligibility_passed' => (bool) ($data['eligibility_passed'] ?? false),
@@ -38,7 +40,7 @@ class EvaluationService
             'documents_complete' => (bool) ($data['documents_complete'] ?? false),
             'assessment' => $data['assessment'] ?? null,
             'recommendation' => $recommendation,
-            'recommended_amount' => $data['recommended_amount'] ?? null,
+            'recommended_amount' => $application->program?->configuredAmount(),
             'remarks' => $data['remarks'],
             'evaluated_at' => now(),
         ]);

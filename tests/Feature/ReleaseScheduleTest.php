@@ -203,6 +203,85 @@ test('actual release can be recorded after the application is scheduled', functi
         ->and(AssistanceRelease::query()->where('application_id', $application->id)->exists())->toBeTrue();
 });
 
+test('schedule page record button saves the release without extra fields', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $application = Application::query()
+        ->where('status', ApplicationStatus::Approved)
+        ->with('program')
+        ->firstOrFail();
+
+    $this->actingAs($admin)
+        ->post(route('admin.releases.schedule'), [
+            'application_id' => $application->id,
+            'release_date' => now()->addDays(2)->toDateString(),
+            'release_location' => 'MSWDO Window 2, Nabua Local Government Center',
+            'release_method' => 'cash',
+        ])
+        ->assertRedirect();
+
+    $schedule = ReleaseSchedule::query()
+        ->where('application_id', $application->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.releases.index'))
+        ->post(route('admin.releases.record'), [
+            'application_id' => $application->id,
+            'release_schedule_id' => $schedule->id,
+        ])
+        ->assertRedirect(route('admin.releases.index'))
+        ->assertSessionHas('success', 'Assistance release recorded.');
+
+    $release = AssistanceRelease::query()->where('application_id', $application->id)->first();
+
+    expect($application->fresh()->status)->toBe(ApplicationStatus::Released)
+        ->and($schedule->fresh()->status)->toBe('completed')
+        ->and($release)->not->toBeNull()
+        ->and((float) $release->amount)->toBe((float) ($application->approved_amount ?: $application->program->configuredAmount()));
+});
+
+test('a scheduled release cannot be recorded twice', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+    $application = Application::query()
+        ->where('status', ApplicationStatus::Approved)
+        ->firstOrFail();
+
+    $this->actingAs($admin)
+        ->post(route('admin.releases.schedule'), [
+            'application_id' => $application->id,
+            'release_date' => now()->addDays(2)->toDateString(),
+            'release_location' => 'MSWDO Window 2, Nabua Local Government Center',
+            'release_method' => 'cash',
+        ])
+        ->assertRedirect();
+
+    $schedule = ReleaseSchedule::query()
+        ->where('application_id', $application->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->actingAs($admin)
+        ->from(route('admin.releases.index'))
+        ->post(route('admin.releases.record'), [
+            'application_id' => $application->id,
+            'release_schedule_id' => $schedule->id,
+        ])
+        ->assertRedirect(route('admin.releases.index'))
+        ->assertSessionHas('success');
+
+    $this->actingAs($admin)
+        ->from(route('admin.releases.index'))
+        ->post(route('admin.releases.record'), [
+            'application_id' => $application->id,
+            'release_schedule_id' => $schedule->id,
+        ])
+        ->assertRedirect(route('admin.releases.index'))
+        ->assertSessionHasErrors('application');
+
+    expect(AssistanceRelease::query()->where('application_id', $application->id)->count())->toBe(1);
+});
+
 test('release schedule page can filter schedules by date and status', function () {
     $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
     $schedule = ReleaseSchedule::query()

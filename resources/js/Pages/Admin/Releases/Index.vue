@@ -7,6 +7,7 @@ import Modal from '@/Components/Modal.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Pagination from '@/Components/Pagination.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import { useNotify } from '@/composables/useNotify';
 
 const props = defineProps({
     schedules: { type: Object, required: true },
@@ -17,12 +18,15 @@ const props = defineProps({
     methods: { type: Object, default: () => ({}) },
 });
 
+const { notify } = useNotify();
 const methodEntries = computed(() => Object.entries(props.methods));
 const showSchedule = ref(false);
 const showReschedule = ref(false);
 const selectedIds = ref([]);
 const selectedScheduleIds = ref([]);
 const rescheduleTargets = ref([]);
+const recordingId = ref(null);
+const recordReleaseForm = useForm({});
 
 const filter = useForm({
     q: props.filters.q || '',
@@ -211,6 +215,28 @@ const saveSchedule = () => {
     });
 };
 
+const recordRelease = (row) => {
+    if (! canRecordSchedule(row) || recordReleaseForm.processing) {
+        return;
+    }
+
+    recordingId.value = row.id;
+    recordReleaseForm
+        .transform(() => ({
+            application_id: row.application?.id,
+            release_schedule_id: row.id,
+        }))
+        .post(route('admin.releases.record'), {
+            preserveScroll: true,
+            onError: (errors) => {
+                notify.error(errors.application || errors.amount || 'The release could not be recorded.');
+            },
+            onFinish: () => {
+                recordingId.value = null;
+            },
+        });
+};
+
 </script>
 
 <template>
@@ -221,9 +247,6 @@ const saveSchedule = () => {
                 <button class="btn-primary btn-sm" type="button" :disabled="!approvedRows.length && !selectedApproved.length" @click="openSchedule()">
                     {{ selectedApproved.length ? `Schedule selected (${selectedApproved.length})` : 'Schedule a release' }}
                 </button>
-                <Link class="btn-success btn-sm cursor-pointer" :href="route('admin.releases.record.create')">
-                    Record actual release
-                </Link>
             </template>
         </PageHeader>
 
@@ -388,13 +411,15 @@ const saveSchedule = () => {
                                 >
                                     Reschedule
                                 </button>
-                                <Link
+                                <button
                                     v-if="canRecordSchedule(row)"
-                                    class="btn-success btn-sm cursor-pointer"
-                                    :href="route('admin.releases.record.create', { q: row.application?.application_no })"
+                                    class="btn-success btn-sm"
+                                    type="button"
+                                    :disabled="recordReleaseForm.processing"
+                                    @click="recordRelease(row)"
                                 >
-                                    Record
-                                </Link>
+                                    {{ recordingId === row.id && recordReleaseForm.processing ? 'Recording…' : 'Record' }}
+                                </button>
                                 <span v-if="!canRecordSchedule(row)" class="text-xs text-gov-muted">—</span>
                             </div>
                         </td>

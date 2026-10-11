@@ -18,8 +18,8 @@ defineProps({
                 :class="[
                     compact ? 'w-8' : 'w-12 sm:w-16',
                     {
-                        'bg-gov-success text-white': step.state === 'done',
-                        'bg-gov-blue text-white': step.state === 'current',
+                        'bg-gov-success text-white': step.state === 'done' || (step.state === 'current' && step.tone === 'success'),
+                        'bg-gov-blue text-white': step.state === 'current' && step.tone !== 'success',
                         'bg-gov-danger text-white': step.state === 'rejected',
                         'bg-gov-off text-gov-muted': step.state === 'upcoming',
                     },

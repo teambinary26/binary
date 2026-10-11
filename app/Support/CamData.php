@@ -28,6 +28,7 @@ class CamData
             'amount_type' => $program->amount_type,
             'amount' => $program->amount,
             'amount_max' => $program->amount_max,
+            'amount_formatted' => peso($program->configuredAmount()),
             'amount_display' => $program->amountDisplay(),
             'is_open' => $program->is_open,
             'is_currently_open' => $program->isCurrentlyOpen(),
@@ -104,6 +105,7 @@ class CamData
                 'code' => $application->program->code,
                 'slug' => $application->program->slug,
                 'amount' => $application->program->amount,
+                'amount_formatted' => peso($application->program->configuredAmount()),
                 'amount_display' => $application->program->amountDisplay(),
                 'category_name' => $application->program->category?->name,
             ] : null,
@@ -114,10 +116,13 @@ class CamData
         ];
     }
 
-    public static function applicationDetail(Application $application): array
+    public static function applicationDetail(Application $application, bool $applicantFacing = false): array
     {
         $row = self::applicationRow($application);
-        $timeline = collect(ApplicationStatus::timeline())->values()->map(function (ApplicationStatus $step, int $index) use ($application) {
+        $steps = $applicantFacing
+            ? ApplicationStatus::applicantTimeline($application->status)
+            : ApplicationStatus::timeline();
+        $timeline = collect($steps)->values()->map(function (ApplicationStatus $step, int $index) use ($application) {
             $current = $application->status;
             $state = 'upcoming';
             if ($current === ApplicationStatus::Rejected && $index >= 4) {
@@ -138,6 +143,7 @@ class CamData
                 'label' => $state === 'rejected' ? 'Rejected' : $step->label(),
                 'description' => $step->description(),
                 'state' => $state,
+                'tone' => $step->tone(),
             ];
         });
 

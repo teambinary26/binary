@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { route } from 'ziggy-js';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import { signOut as endSession } from '@/authSession';
 import Seal from '@/Components/Seal.vue';
 
 const page = usePage();
@@ -33,7 +34,7 @@ const nav = [
 
 const isActive = (name) => route().current(name) || route().current(`${name}.*`) || route().current(name.replace('.index', '.*'));
 
-const signOut = () => logout.post(route('logout'));
+const signOut = () => endSession(logout);
 
 watch(() => page.url, () => {
     menuOpen.value = false;

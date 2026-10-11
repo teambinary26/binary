@@ -8,6 +8,7 @@ import SidebarBrand from '@/Components/SidebarBrand.vue';
 import SidebarFooter from '@/Components/SidebarFooter.vue';
 import SidebarNavLink from '@/Components/SidebarNavLink.vue';
 import { useSidebarCollapse } from '@/composables/useSidebarCollapse';
+import { signOut as endSession } from '@/authSession';
 
 const page = usePage();
 const gov = computed(() => page.props.gov);
@@ -83,7 +84,7 @@ const isActive = (name) => {
     return route().current(name) || route().current(name.replace('.index', '.*'));
 };
 
-const signOut = () => logout.post(route('logout'));
+const signOut = () => endSession(logout);
 </script>
 
 <template>

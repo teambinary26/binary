@@ -143,9 +143,15 @@ const evaluate = useForm({
         || props.application.eligibility_assessment?.summary
         || '',
     recommendation: props.application.latest_evaluation?.recommendation ?? 'approval',
-    recommended_amount: props.application.latest_evaluation?.recommended_amount ?? props.application.program?.amount ?? '',
     remarks: props.application.latest_evaluation?.remarks ?? '',
 });
+
+const programAmountLabel = computed(() => (
+    props.application.program?.amount_formatted
+    || props.application.program_detail?.amount_formatted
+    || props.application.program?.amount_display
+    || '—'
+));
 
 watch(() => props.application.eligibility_assessment, () => {
     applyRuleDefaults();
@@ -171,7 +177,6 @@ const evaluationConfirmMessage = computed(() => {
 
 const decide = useForm({
     decision: 'approved',
-    approved_amount: props.application.latest_evaluation?.recommended_amount ?? props.application.program?.amount ?? '',
     remarks: '',
 });
 
@@ -727,7 +732,11 @@ const showDetails = ref(false);
                                 <option value="revision">Return for revision</option>
                             </select>
                         </div>
-                        <div><label>Amount</label><input v-model="evaluate.recommended_amount" type="number" step="0.01"></div>
+                        <div>
+                            <label>Assistance amount</label>
+                            <input :value="programAmountLabel" type="text" readonly tabindex="-1">
+                            <p class="mt-1 text-xs text-gov-muted">Taken from the program settings and cannot be changed here.</p>
+                        </div>
                         <div class="md:col-span-2"><label>Remarks</label><textarea v-model="evaluate.remarks" rows="2" required /></div>
                         <div class="md:col-span-2">
                             <button class="btn-primary cursor-pointer" type="submit" :disabled="evaluate.processing">
@@ -754,7 +763,11 @@ const showDetails = ref(false);
                             Last decision: <strong>{{ application.latest_approval.decision_label }}</strong> by {{ application.latest_approval.officer }} on {{ application.latest_approval.decided_at }}
                         </p>
                         <div v-if="abilities.approve && application.is_in_approval" class="grid gap-3 md:grid-cols-2">
-                            <div class="md:col-span-2"><label>Approved amount</label><input v-model="decide.approved_amount" type="number" step="0.01"></div>
+                            <div class="md:col-span-2">
+                                <label>Approved amount</label>
+                                <input :value="programAmountLabel" type="text" readonly tabindex="-1">
+                                <p class="mt-1 text-xs text-gov-muted">Taken from the program settings and cannot be changed here.</p>
+                            </div>
                             <div class="md:col-span-2"><label>Remarks (required when rejecting or returning)</label><textarea v-model="decide.remarks" rows="3" /></div>
                             <div class="md:col-span-2 flex flex-wrap gap-2">
                                 <button class="btn-success" type="button" @click="saveDecision('approved')">Approve</button>

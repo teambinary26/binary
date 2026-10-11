@@ -216,7 +216,8 @@ class ReleaseController extends Controller
     {
         $data = $request->validate([
             'application_id' => ['required', 'exists:applications,id'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'release_schedule_id' => ['nullable', 'exists:release_schedules,id'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['nullable', 'string'],
         ]);
 

@@ -18,6 +18,7 @@ class ProfileController extends Controller
         return Inertia::render('Applicant/Profile', [
             'applicant' => \App\Support\CamData::applicant($applicant),
             'barangays' => config('cams.barangays'),
+            'residence' => lgu_residence(),
         ]);
     }
 
@@ -32,8 +33,8 @@ class ProfileController extends Controller
             'contact_number' => ['required', 'string', 'max:30'],
             'street' => ['required', 'string', 'max:255'],
             'barangay' => ['required', 'string', 'max:100'],
-            'municipality' => ['required', 'string', 'max:100'],
-            'province' => ['required', 'string', 'max:100'],
+            'municipality' => ['nullable', 'string', 'max:100'],
+            'province' => ['nullable', 'string', 'max:100'],
             'beneficiary_type' => ['required', 'in:student,non_student'],
             'school_name' => ['nullable', 'string', 'max:150'],
             'course_or_program' => ['nullable', 'string', 'max:150'],

@@ -157,6 +157,54 @@ TEXT);
         ->and($name?->match_status)->toBe('matched');
 });
 
+test('id ocr matches the application name regardless of letter case', function () {
+    $application = Application::query()
+        ->has('documents')
+        ->has('applicant.user')
+        ->with(['documents', 'applicant.user'])
+        ->firstOrFail();
+
+    $application->update(['status' => ApplicationStatus::Accepted]);
+    $document = $application->documents
+        ->first(fn ($row) => str_contains(strtolower($row->requirement_name), 'valid id'))
+        ?? $application->documents->firstWhere('program_requirement_id');
+
+    expect($document)->not->toBeNull();
+    $application->applicant->update(['full_name' => 'Augusto Alcomendras']);
+    $application->applicant->user->update(['is_active' => true]);
+
+    fakeOcrText(<<<'TEXT'
+Philippine National ID
+APELYIDO/LAST NAME
+ALCOMENDRAS
+MGA PANGALAN/GIVEN NAMES
+AUGUSTO
+PETSA NG KAPANGANAKAN/DATE OF BIRTH
+April 01, 2000
+TEXT);
+
+    $this->actingAs($application->applicant->user)
+        ->post(route('applicant.apply.documents.store', $application), [
+            'requirement_id' => $document->program_requirement_id,
+            'file' => UploadedFile::fake()->image('philsys.jpg'),
+        ])
+        ->assertRedirect();
+
+    $uploaded = $application->fresh()->documents()
+        ->where('program_requirement_id', $document->program_requirement_id)
+        ->where(function ($query) {
+            $query->whereNull('side')->orWhere('side', 'front');
+        })
+        ->with('ocrResult.fields')
+        ->firstOrFail();
+
+    $name = $uploaded->ocrResult?->fields->firstWhere('field_key', 'full_name');
+
+    expect($name?->expected_value)->toBe('Augusto Alcomendras')
+        ->and($name?->extracted_value)->toBe('AUGUSTO ALCOMENDRAS')
+        ->and($name?->match_status)->toBe('matched');
+});
+
 test('staff can correct ocr fields without verifying the document', function () {
     $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
     $application = Application::query()

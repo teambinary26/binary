@@ -131,6 +131,19 @@ enum ApplicationStatus: string
         ];
     }
 
+    /**
+     * Steps shown to applicants. Completed is hidden until the office has marked the claim finished.
+     *
+     * @return list<self>
+     */
+    public static function applicantTimeline(self $current): array
+    {
+        return collect(self::timeline())
+            ->reject(fn (self $step) => $step === self::Completed && $current !== self::Completed)
+            ->values()
+            ->all();
+    }
+
     public function timelineIndex(): int
     {
         $index = array_search($this, self::timeline(), true);

@@ -18,9 +18,13 @@ const props = defineProps({
 
 const form = useForm({
     q: props.filters.q || '',
-    type: props.filters.type || '',
     barangay: props.filters.barangay || '',
-});
+    type: props.filters.type || '',
+}).transform((data) => ({
+    q: data.q,
+    barangay: data.barangay,
+    ...(data.type ? { type: data.type } : {}),
+}));
 
 const pending = ref(null);
 const deleting = useForm({});
@@ -34,7 +38,7 @@ const applyFilters = () => form.get(route('admin.applicants.index'), {
 });
 
 watch(
-    () => [form.q, form.type, form.barangay],
+    () => [form.q, form.barangay],
     (values, previous) => {
         clearTimeout(searchTimer);
         const searchChanged = values[0] !== previous?.[0];
@@ -81,16 +85,8 @@ const confirmRemove = () => {
         <Head title="Applicants" />
         <PageHeader title="Beneficiaries / Applicants" kicker="Registered citizens" />
         <form class="panel mb-4" @submit.prevent="applyFilters">
-            <div class="grid gap-3 p-4 md:grid-cols-3">
+            <div class="grid gap-3 p-4 md:grid-cols-2">
                 <div><label>Search</label><input v-model="form.q"></div>
-                <div>
-                    <label>Type</label>
-                    <select v-model="form.type">
-                        <option value="">All</option>
-                        <option value="student">Student</option>
-                        <option value="non_student">Non-student</option>
-                    </select>
-                </div>
                 <div>
                     <label>Barangay</label>
                     <select v-model="form.barangay">

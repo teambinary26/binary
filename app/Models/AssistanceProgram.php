@@ -89,6 +89,19 @@ class AssistanceProgram extends Model
         return peso($this->amount, false);
     }
 
+    public function configuredAmount(): ?string
+    {
+        if ($this->amount !== null && $this->amount !== '') {
+            return (string) $this->amount;
+        }
+
+        if ($this->amount_max !== null && $this->amount_max !== '') {
+            return (string) $this->amount_max;
+        }
+
+        return null;
+    }
+
     public function isCurrentlyOpen(): bool
     {
         if (! $this->is_open) {

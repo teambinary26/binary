@@ -64,6 +64,10 @@ class OcrExtractor
             return ['extracted', 100];
         }
 
+        if ($this->sameTextIgnoreCase($expected, $extracted)) {
+            return ['matched', 100];
+        }
+
         if ($key === 'date_of_birth') {
             if ($this->sameCalendarDay($expected, $extracted)) {
                 return ['matched', 100];
@@ -428,12 +432,24 @@ class OcrExtractor
         return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
     }
 
+    private function sameTextIgnoreCase(string $left, string $right): bool
+    {
+        return $this->fold($left) === $this->fold($right);
+    }
+
+    private function fold(string $value): string
+    {
+        $value = preg_replace('/\s+/u', ' ', trim($value)) ?? trim($value);
+
+        return mb_strtolower($value, 'UTF-8');
+    }
+
     private function normalize(string $value): string
     {
-        $value = Str::lower($value);
-        $value = preg_replace('/[^a-z0-9\s]/', ' ', $value) ?? $value;
+        $value = $this->fold($value);
+        $value = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $value) ?? $value;
 
-        return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
     }
 
     private function contains(string $haystack, string $needle): bool

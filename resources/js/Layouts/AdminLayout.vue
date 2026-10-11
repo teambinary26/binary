@@ -8,6 +8,7 @@ import SidebarFooter from '@/Components/SidebarFooter.vue';
 import SidebarNavLink from '@/Components/SidebarNavLink.vue';
 import Toaster from '@/Components/Toaster.vue';
 import { useCan } from '@/composables/useCan';
+import { signOut as endSession } from '@/authSession';
 import { useSidebarCollapse } from '@/composables/useSidebarCollapse';
 
 const ICONS = {
@@ -46,7 +47,7 @@ const cancelSignOut = () => {
     if (logout.processing) return;
     confirmSignOut.value = false;
 };
-const signOut = () => logout.post(route('logout'));
+const signOut = () => endSession(logout);
 const { collapsed: sidebarCollapsed, toggle: toggleDesktopSidebar } = useSidebarCollapse('admin-sidebar-collapsed');
 const mobileOpen = ref(false);
 const desktop = ref(typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);

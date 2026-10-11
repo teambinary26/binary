@@ -63,6 +63,20 @@ test('the same calendar day matches across date formats', function () {
     expect($mismatch)->toBe('mismatch');
 });
 
+test('form values match ocr text regardless of letter case', function () {
+    $extractor = new OcrExtractor();
+
+    [$exact] = $extractor->compare('Augusto', 'AUGUSTO', 'full_name');
+    [$fullName] = $extractor->compare('Augusto Alcomendras', 'AUGUSTO ALCOMENDRAS', 'full_name');
+    [$mixed] = $extractor->compare('Santa Elena', 'SANTA ELENA', 'barangay');
+    [$different] = $extractor->compare('Augusto', 'AUGUSTA', 'full_name');
+
+    expect($exact)->toBe('matched')
+        ->and($fullName)->toBe('matched')
+        ->and($mixed)->toBe('matched')
+        ->and($different)->toBe('mismatch');
+});
+
 test('colon labeled enrollment text still extracts fields', function () {
     $extractor = new OcrExtractor();
     $text = "Certificate of Enrollment\nStudent Name: Ana Cruz\nSchool: ABC University\nCurrently Enrolled";

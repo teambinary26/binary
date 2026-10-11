@@ -9,12 +9,16 @@ import LguResidenceFields from '@/Components/LguResidenceFields.vue';
 const props = defineProps({
     applicant: { type: Object, required: true },
     barangays: { type: Array, default: () => [] },
+    residence: {
+        type: Object,
+        default: () => ({ municipality: 'Nabua', province: 'Camarines Sur' }),
+    },
 });
 
 const page = usePage();
 const residence = computed(() => ({
-    municipality: page.props.gov?.residence?.municipality || 'Nabua',
-    province: page.props.gov?.residence?.province || 'Camarines Sur',
+    municipality: props.residence?.municipality || page.props.gov?.residence?.municipality || 'Nabua',
+    province: props.residence?.province || page.props.gov?.residence?.province || 'Camarines Sur',
 }));
 
 const form = useForm({
@@ -79,7 +83,11 @@ const submit = () => {
                         <option v-for="barangay in barangays" :key="barangay" :value="barangay">{{ barangay }}</option>
                     </select>
                 </div>
-                <LguResidenceFields municipality-label="Municipality / City" />
+                <LguResidenceFields
+                    municipality-label="Municipality / City"
+                    :municipality="residence.municipality"
+                    :province="residence.province"
+                />
                 <div><label>School (students)</label><input v-model="form.school_name" :disabled="! isStudent"></div>
                 <div><label>Course / program</label><input v-model="form.course_or_program" :disabled="! isStudent"></div>
                 <div><label>Year / grade level</label><input v-model="form.year_level" :disabled="! isStudent"></div>

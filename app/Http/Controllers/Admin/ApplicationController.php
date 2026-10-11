@@ -361,7 +361,6 @@ class ApplicationController extends Controller
             'documents_complete' => ['nullable', 'boolean'],
             'assessment' => ['nullable', 'string'],
             'recommendation' => ['required', 'in:approval,rejection,revision'],
-            'recommended_amount' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['required', 'string'],
         ]);
 
@@ -411,7 +410,6 @@ class ApplicationController extends Controller
 
         $data = $request->validate([
             'decision' => ['required', 'in:approved,rejected,revision'],
-            'approved_amount' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['nullable', 'string'],
         ]);
 

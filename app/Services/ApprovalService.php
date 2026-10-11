@@ -29,7 +29,9 @@ class ApprovalService
             ]);
         }
 
-        $amount = $data['approved_amount'] ?? $application->latestEvaluation?->recommended_amount;
+        $application->loadMissing(['program', 'latestEvaluation']);
+        $amount = $application->program?->configuredAmount()
+            ?? $application->latestEvaluation?->recommended_amount;
 
         $application->approvals()->create([
             'officer_id' => $user->id,
