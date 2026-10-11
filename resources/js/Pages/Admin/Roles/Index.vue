@@ -88,7 +88,7 @@ const saveLabel = (role) => (role.slug === 'sk' ? 'Save SK access' : `Save ${rol
                 <p class="text-gov-muted">{{ role.description }} Tick the pages and actions this account may use. Dashboard stays available so they can sign in. Verification, evaluation, and approval are assigned per person in System Settings, not here.</p>
                 <div class="grid gap-4 lg:grid-cols-2">
                     <section v-for="module in catalog" :key="`${role.id}-${module.module}`" class="border border-gov-border">
-                        <div class="flex items-center justify-between border-b border-gov-border bg-gov-off px-3 py-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gov-border bg-gov-off px-3 py-2">
                             <h2 class="text-xs font-bold uppercase tracking-wide text-gov-dark">{{ module.module }}</h2>
                             <label class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gov-muted">
                                 <input type="checkbox" :checked="moduleChecked(role, module)" @change="toggleModule(role, module)">
@@ -119,7 +119,7 @@ const saveLabel = (role) => (role.slug === 'sk' ? 'Save SK access' : `Save ${rol
                     {{ formFor(role).errors.role || formFor(role).errors.permission_slugs }}
                 </p>
                 <div class="flex justify-end">
-                    <button class="btn-primary" type="submit" :disabled="formFor(role).processing">{{ saveLabel(role) }}</button>
+                    <button class="btn-primary w-full sm:w-auto" type="submit" :disabled="formFor(role).processing">{{ saveLabel(role) }}</button>
                 </div>
             </form>
         </div>

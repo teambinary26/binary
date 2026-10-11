@@ -252,11 +252,11 @@ const emptyMessage = computed(() => (
             :kicker="isIncoming ? 'Accept or reject new filings' : 'All filings'"
         />
 
-        <div class="mb-4 flex flex-wrap border-b-2 border-gov-border" role="tablist" aria-label="Application lists">
+        <div class="mb-4 flex overflow-x-auto border-b-2 border-gov-border" role="tablist" aria-label="Application lists">
             <button
                 type="button"
                 role="tab"
-                class="relative -mb-[2px] px-4 py-2.5 text-sm font-bold uppercase tracking-wide"
+                class="relative -mb-[2px] shrink-0 px-4 py-2.5 text-sm font-bold uppercase tracking-wide"
                 :class="! isIncoming ? 'border-b-2 border-gov-blue text-gov-blue' : 'text-gov-muted hover:text-gov-dark'"
                 :aria-selected="(! isIncoming).toString()"
                 @click="switchTab('all')"
@@ -266,7 +266,7 @@ const emptyMessage = computed(() => (
             <button
                 type="button"
                 role="tab"
-                class="relative -mb-[2px] inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold uppercase tracking-wide"
+                class="relative -mb-[2px] inline-flex shrink-0 items-center gap-2 px-4 py-2.5 text-sm font-bold uppercase tracking-wide"
                 :class="isIncoming ? 'border-b-2 border-gov-blue text-gov-blue' : 'text-gov-muted hover:text-gov-dark'"
                 :aria-selected="isIncoming.toString()"
                 @click="switchTab('incoming')"
@@ -376,7 +376,7 @@ const emptyMessage = computed(() => (
                     <td data-label="Date">{{ row.submitted_at }}</td>
                     <td data-label="Status"><StatusBadge :label="row.status_label" :tone="row.status_tone" /></td>
                     <td data-label="Staff">{{ row.assigned_staff || '—' }}</td>
-                    <td data-label="Action" class="whitespace-nowrap text-right">
+                    <td data-label="Action" class="text-right">
                         <div class="flex flex-wrap justify-end gap-2">
                             <Link class="btn-secondary btn-sm" :href="route('admin.applications.show', row.id)">Open</Link>
                             <template v-if="isIncoming && canAccept">
@@ -450,9 +450,9 @@ const emptyMessage = computed(() => (
                     />
                     <p v-if="reviewForm.errors.remarks" class="field-error">{{ reviewForm.errors.remarks }}</p>
                 </div>
-                <div class="flex justify-end gap-2">
-                    <button class="btn-ghost" type="button" :disabled="reviewForm.processing" @click="cancelReview">Cancel</button>
-                    <button class="btn-danger" type="submit" :disabled="reviewForm.processing">Yes, reject</button>
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button class="btn-ghost w-full sm:w-auto" type="button" :disabled="reviewForm.processing" @click="cancelReview">Cancel</button>
+                    <button class="btn-danger w-full sm:w-auto" type="submit" :disabled="reviewForm.processing">Yes, reject</button>
                 </div>
             </form>
         </Modal>

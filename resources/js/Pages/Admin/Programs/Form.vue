@@ -203,7 +203,7 @@ const submit = () => {
                     <button class="btn-ghost btn-sm" type="button" @click="addRule">Add rule</button>
                 </div>
             </div>
-            <button class="btn-primary" type="submit" :disabled="form.processing">Save program</button>
+            <button class="btn-primary w-full sm:w-auto" type="submit" :disabled="form.processing">Save program</button>
         </form>
     </AdminLayout>
 </template>

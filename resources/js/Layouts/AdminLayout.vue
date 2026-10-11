@@ -206,7 +206,7 @@ const navGroups = computed(() => {
         <Toaster />
         <a class="skip-link" href="#main">Skip to main content</a>
         <div class="official-strip no-print shrink-0" aria-hidden="true"><span /><span /><span /></div>
-        <div class="flex min-h-0 flex-1">
+        <div class="flex min-h-0 min-w-0 flex-1">
             <button
                 v-if="mobileOpen && !desktop"
                 type="button"
@@ -219,8 +219,8 @@ const navGroups = computed(() => {
                 class="no-print shrink-0 flex-col overflow-hidden bg-gov-blue text-white transition-[width] duration-200"
                 :class="[
                     sidebarVisible ? 'flex' : 'hidden',
-                    compact ? 'w-[4.5rem]' : 'w-60',
-                    desktop ? '' : 'fixed inset-y-0 left-0 z-40',
+                    compact ? 'w-[4.5rem]' : (desktop ? 'w-60' : 'w-[min(17.5rem,86vw)]'),
+                    desktop ? '' : 'fixed inset-y-0 left-0 z-40 h-dvh shadow-2xl',
                 ]"
             >
                 <div class="shrink-0 border-b border-white/15">
@@ -245,8 +245,8 @@ const navGroups = computed(() => {
             </aside>
             <div class="flex min-h-0 min-w-0 flex-1 flex-col">
                 <header class="no-print shrink-0 border-b-2 border-gov-gold bg-white">
-                    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                        <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+                        <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                             <button
                                 type="button"
                                 class="inline-flex h-9 w-9 shrink-0 items-center justify-center border border-gov-border text-gov-blue hover:bg-gov-off"
@@ -264,28 +264,28 @@ const navGroups = computed(() => {
                                 </svg>
                             </button>
                             <div class="min-w-0">
-                                <p class="text-[11px] font-bold uppercase tracking-widest text-gov-blue">{{ gov.agency }}</p>
-                                <p class="text-sm text-gov-muted">{{ gov.system_name }} &nbsp;|&nbsp; {{ clock?.datetime }}</p>
+                                <p class="truncate text-[10px] font-bold uppercase tracking-widest text-gov-blue sm:text-[11px]">{{ gov.agency }}</p>
+                                <p class="hidden truncate text-sm text-gov-muted sm:block">{{ gov.system_name }} &nbsp;|&nbsp; {{ clock?.datetime }}</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3">
+                        <div class="flex shrink-0 items-center gap-2 sm:gap-3">
                             <div class="min-w-0 text-right">
-                                <p class="truncate text-sm font-semibold leading-tight text-gov-blue">{{ user?.name }}</p>
-                                <p class="truncate text-xs uppercase tracking-wide text-gov-muted">{{ user?.role_name }}</p>
+                                <p class="max-w-[6.5rem] truncate text-xs font-semibold leading-tight text-gov-blue sm:max-w-[12rem] sm:text-sm">{{ user?.name }}</p>
+                                <p class="truncate text-[10px] uppercase tracking-wide text-gov-muted sm:text-xs">{{ user?.role_name }}</p>
                             </div>
-                            <Link :href="route('site.home')" class="btn-ghost btn-sm">Public site</Link>
+                            <Link :href="route('site.home')" class="btn-ghost btn-sm hidden sm:inline-flex">Public site</Link>
                             <button class="btn-primary btn-sm" type="button" @click="askSignOut">Sign out</button>
                         </div>
                     </div>
                     <nav v-if="!mobileOpen" class="flex gap-2 overflow-x-auto border-t border-gov-border px-2 py-2 text-xs lg:hidden">
-                        <Link v-if="can('dashboard.view')" :href="route('admin.dashboard')">Dashboard</Link>
-                        <Link v-if="can('applications.view')" :href="route('admin.applications.index')">Applications</Link>
-                        <Link v-if="can('applications.view')" :href="route('admin.workflow.index')">Workflow</Link>
-                        <Link v-if="can('programs.view')" :href="route('admin.programs.index')">Programs</Link>
-                        <Link v-if="can('releases.view')" :href="route('admin.releases.index')">Releases</Link>
+                        <Link v-if="can('dashboard.view')" class="shrink-0 whitespace-nowrap" :href="route('admin.dashboard')">Dashboard</Link>
+                        <Link v-if="can('applications.view')" class="shrink-0 whitespace-nowrap" :href="route('admin.applications.index')">Applications</Link>
+                        <Link v-if="can('applications.view')" class="shrink-0 whitespace-nowrap" :href="route('admin.workflow.index')">Workflow</Link>
+                        <Link v-if="can('programs.view')" class="shrink-0 whitespace-nowrap" :href="route('admin.programs.index')">Programs</Link>
+                        <Link v-if="can('releases.view')" class="shrink-0 whitespace-nowrap" :href="route('admin.releases.index')">Releases</Link>
                     </nav>
                 </header>
-                <main id="main" class="custom-scroll min-h-0 flex-1 overflow-y-scroll overscroll-contain p-4 md:p-6" scroll-region>
+                <main id="main" class="custom-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-scroll overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 md:p-6" scroll-region>
                     <slot />
                 </main>
             </div>

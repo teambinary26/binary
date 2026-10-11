@@ -148,7 +148,7 @@ const confirmRemove = () => {
                     </tr>
                     <tr v-for="row in group.paginator.data" :key="row.id">
                         <td data-label="Name">{{ row.name }}</td>
-                        <td data-label="Email">{{ row.email }}</td>
+                        <td data-label="Email" class="break-all">{{ row.email }}</td>
                         <td data-label="Role">{{ row.role }}</td>
                         <td data-label="Office">{{ row.office || '—' }}</td>
                         <td data-label="Active">{{ row.is_active ? 'Yes' : 'No' }}</td>
@@ -221,8 +221,8 @@ const confirmRemove = () => {
                     </label>
                 </div>
                 <div class="flex flex-col-reverse gap-2 border-t border-gov-border pt-4 md:col-span-2 sm:flex-row sm:justify-end">
-                    <button class="btn-ghost" type="button" :disabled="form.processing" @click="closeCreate">Cancel</button>
-                    <button class="btn-primary" type="submit" :disabled="form.processing">
+                    <button class="btn-ghost w-full sm:w-auto" type="button" :disabled="form.processing" @click="closeCreate">Cancel</button>
+                    <button class="btn-primary w-full sm:w-auto" type="submit" :disabled="form.processing">
                         {{ form.processing ? 'Saving…' : 'Save user' }}
                     </button>
                 </div>

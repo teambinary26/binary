@@ -61,7 +61,7 @@ const submit = () => {
                     <input v-model="form.password_confirmation" type="password">
                 </div>
             </div>
-            <div class="border-t border-gov-border p-4"><button class="btn-primary" type="submit">Save user</button></div>
+            <div class="border-t border-gov-border p-4"><button class="btn-primary w-full sm:w-auto" type="submit">Save user</button></div>
         </form>
     </AdminLayout>
 </template>

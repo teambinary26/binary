@@ -210,7 +210,7 @@
     }
 
     .stat-card .value {
-        @apply px-2 py-3 text-xl font-bold leading-none text-gov-dark sm:px-3 sm:py-4 sm:text-3xl;
+        @apply break-words px-2 py-3 text-xl font-bold leading-none text-gov-dark sm:px-3 sm:py-4 sm:text-3xl;
     }
 
     .stat-card .meta {
@@ -238,8 +238,10 @@
     }
 
     .badge {
-        @apply inline-flex items-center border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide;
+        @apply inline-flex max-w-full items-center border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide;
         border-radius: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
     .badge-info { @apply border-gov-blue bg-gov-light text-gov-dark; }
@@ -338,10 +340,31 @@
         max-width: 38%;
     }
 
+    .data-table td:not([data-label])::before,
+    .data-table td[data-label=""]::before {
+        display: none;
+        content: none;
+    }
+
+    .data-table td:not([data-label]),
+    .data-table td[data-label=""] {
+        justify-content: flex-end;
+    }
+
     .data-table td > * {
         max-width: 62%;
         text-align: right;
         overflow-wrap: anywhere;
+    }
+
+    .data-table td[data-label="Select"] > *,
+    .data-table td[data-label="Action"] > * {
+        max-width: 100%;
+    }
+
+    .data-table td[data-label="Email"],
+    .data-table td[data-label="Description"] {
+        word-break: break-word;
     }
 }
 
@@ -365,6 +388,23 @@
 
     .panel-h {
         overflow-wrap: anywhere;
+    }
+
+    .chart-frame,
+    .chart-frame-wide {
+        height: 10rem;
+    }
+
+    .admin-page-actions > a,
+    .admin-page-actions > button,
+    .admin-page-actions > span {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .admin-page-actions > span {
+        display: block;
     }
 
     [data-sonner-toaster] {

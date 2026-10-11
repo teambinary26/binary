@@ -14,7 +14,7 @@ defineProps({
             <h1 class="page-title">{{ title }}</h1>
             <p v-if="documentNo" class="break-all text-xs font-semibold uppercase tracking-wide text-gov-muted">{{ documentNo }}</p>
         </div>
-        <div v-if="$slots.actions" class="mt-3 flex flex-col flex-wrap gap-2 sm:flex-row">
+        <div v-if="$slots.actions" class="admin-page-actions mt-3 flex flex-col flex-wrap gap-2 sm:flex-row">
             <slot name="actions" />
         </div>
     </div>

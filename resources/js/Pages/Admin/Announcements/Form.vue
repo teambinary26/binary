@@ -42,7 +42,7 @@ const submit = () => {
                 <label class="flex items-center gap-2 text-sm font-normal normal-case tracking-normal">
                     <input v-model="form.is_published" type="checkbox"> Publish to public website
                 </label>
-                <button class="btn-primary" type="submit">Save</button>
+                <button class="btn-primary w-full sm:w-auto" type="submit">Save</button>
             </div>
         </form>
     </AdminLayout>

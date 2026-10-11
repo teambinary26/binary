@@ -113,7 +113,7 @@ const saveRecord = (application) => {
                     <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                         <div v-for="detail in application.details" :key="detail.field_name">
                             <dt class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">{{ detail.field_label }}</dt>
-                            <dd class="mt-1">{{ detail.value }}</dd>
+                            <dd class="mt-1 break-words">{{ detail.value }}</dd>
                         </div>
                         <div>
                             <dt class="text-[11px] font-bold uppercase tracking-wide text-gov-muted">Approved amount</dt>

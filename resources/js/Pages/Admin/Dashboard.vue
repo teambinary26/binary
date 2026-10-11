@@ -46,7 +46,7 @@ onMounted(() => {
         options: {
             ...chartDefaults,
             scales: {
-                x: { ticks: { font: { size: 10 }, maxRotation: 0 } },
+                x: { ticks: { font: { size: 10 }, maxRotation: window.matchMedia('(max-width: 640px)').matches ? 45 : 0 } },
                 y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } },
             },
         },
@@ -82,12 +82,12 @@ onMounted(() => {
         <Head title="Administration Dashboard" />
         <PageHeader title="Operations Dashboard" kicker="Municipal Social Welfare and Development Office" document-no="Official statistical overview" plain />
         <div class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            <div class="stat-card"><div class="label">Total Applicants</div><div class="value text-2xl">{{ stats.applicants }}</div></div>
-            <div class="stat-card"><div class="label">Total Applications</div><div class="value text-2xl">{{ stats.applications }}</div></div>
-            <div class="stat-card"><div class="label">Pending Applications</div><div class="value text-2xl">{{ stats.pending }}</div></div>
-            <div class="stat-card"><div class="label">Approved Applications</div><div class="value text-2xl">{{ stats.approved }}</div></div>
-            <div class="stat-card"><div class="label">Assistance Released</div><div class="value text-2xl">{{ stats.released }}</div></div>
-            <div class="stat-card"><div class="label">Total Amount Released</div><div class="value text-2xl">{{ stats.amount }}</div></div>
+            <div class="stat-card"><div class="label">Total Applicants</div><div class="value break-words text-2xl">{{ stats.applicants }}</div></div>
+            <div class="stat-card"><div class="label">Total Applications</div><div class="value break-words text-2xl">{{ stats.applications }}</div></div>
+            <div class="stat-card"><div class="label">Pending Applications</div><div class="value break-words text-2xl">{{ stats.pending }}</div></div>
+            <div class="stat-card"><div class="label">Approved Applications</div><div class="value break-words text-2xl">{{ stats.approved }}</div></div>
+            <div class="stat-card"><div class="label">Assistance Released</div><div class="value break-words text-2xl">{{ stats.released }}</div></div>
+            <div class="stat-card"><div class="label">Total Amount Released</div><div class="value break-words text-2xl">{{ stats.amount }}</div></div>
         </div>
         <div class="mb-5 grid gap-4 xl:grid-cols-2">
             <div class="panel">
@@ -113,7 +113,7 @@ onMounted(() => {
         </div>
         <div class="panel">
             <div class="panel-h">Recent applications</div>
-            <div class="overflow-x-auto">
+            <div>
                 <table class="data-table">
                     <thead>
                         <tr>

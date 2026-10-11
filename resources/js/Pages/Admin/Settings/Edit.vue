@@ -88,7 +88,7 @@ const initials = (name) => name
                     <input v-model="form[key]" required>
                 </div>
             </div>
-            <div class="border-t border-gov-border p-4"><button class="btn-primary" type="submit">Save settings</button></div>
+            <div class="border-t border-gov-border p-4"><button class="btn-primary w-full sm:w-auto" type="submit">Save settings</button></div>
         </form>
 
         <!-- ═══════════════════════════════════════════
@@ -193,9 +193,9 @@ const initials = (name) => name
                     </article>
                 </div>
             </div>
-            <div class="flex items-center justify-between gap-3 border-t border-gov-border p-4">
+            <div class="flex flex-col gap-3 border-t border-gov-border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <p v-if="workflowForm.errors.assignments" class="field-error">{{ workflowForm.errors.assignments }}</p>
-                <button class="btn-primary ml-auto" type="submit" :disabled="workflowForm.processing">Save workflow assignments</button>
+                <button class="btn-primary w-full sm:ml-auto sm:w-auto" type="submit" :disabled="workflowForm.processing">Save workflow assignments</button>
             </div>
         </form>
     </AdminLayout>

@@ -19,8 +19,8 @@ defineProps({
             <div class="panel lg:col-span-1">
                 <div class="panel-h">Profile</div>
                 <dl class="divide-y divide-gov-border text-sm">
-                    <div class="px-4 py-2">{{ applicant.full_address }}</div>
-                    <div class="px-4 py-2">{{ applicant.contact_number }} · {{ applicant.email }}</div>
+                    <div class="break-words px-4 py-2">{{ applicant.full_address }}</div>
+                    <div class="break-all px-4 py-2">{{ applicant.contact_number }} · {{ applicant.email }}</div>
                     <div class="px-4 py-2">{{ applicant.date_of_birth }} · {{ applicant.sex }}</div>
                     <div class="px-4 py-2">{{ applicant.beneficiary_label }}</div>
                 </dl>

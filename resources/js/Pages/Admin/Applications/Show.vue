@@ -387,11 +387,11 @@ const showDetails = ref(false);
                             <label>Remarks (required when rejecting)</label>
                             <textarea v-model="initialReview.remarks" rows="2" placeholder="Optional note for acceptance, required for rejection" />
                             <p v-if="initialReview.errors.remarks" class="field-error">{{ initialReview.errors.remarks }}</p>
-                            <div class="mt-3 flex flex-wrap gap-2">
-                                <button class="btn-success" type="button" :disabled="initialReview.processing" @click="requestApprove">
+                            <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                <button class="btn-success w-full sm:w-auto" type="button" :disabled="initialReview.processing" @click="requestApprove">
                                     Accept application
                                 </button>
-                                <button class="btn-danger" type="button" :disabled="initialReview.processing" @click="requestReject">
+                                <button class="btn-danger w-full sm:w-auto" type="button" :disabled="initialReview.processing" @click="requestReject">
                                     Reject application
                                 </button>
                             </div>
@@ -405,26 +405,46 @@ const showDetails = ref(false);
                      ═══════════════════════════════════════════════ -->
                 <div class="panel">
                     <div class="panel-h">Workflow Progress</div>
-                    <div class="panel-body flex justify-center">
-                        <div class="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start gap-y-2">
-                            <!-- Row 1: circles + connectors -->
-                            <template v-for="(step, idx) in workflowSteps" :key="step.key">
-                                <div v-if="idx > 0" class="flex items-center self-center px-2">
-                                    <div class="h-1 w-16 rounded" :class="stepConnectorClass(step.state)" />
-                                </div>
-                                <div class="flex flex-col items-center text-center" style="min-width: 8rem;">
+                    <div class="panel-body">
+                        <ol class="space-y-0 md:hidden">
+                            <li v-for="(step, idx) in workflowSteps" :key="`mobile-${step.key}`" class="flex gap-3">
+                                <div class="flex w-10 shrink-0 flex-col items-center">
                                     <div class="flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold" :class="stepStateClass(step.state)">
                                         <template v-if="step.state === 'done'">✓</template>
                                         <template v-else>{{ step.order }}</template>
                                     </div>
-                                    <p class="mt-2 text-xs font-bold uppercase tracking-wide" :class="step.state === 'upcoming' ? 'text-gray-400' : 'text-gov-blue'">{{ step.label }}</p>
-                                    <p class="mt-0.5 max-w-[9rem] text-[11px] leading-tight text-gov-muted">{{ step.description }}</p>
+                                    <div v-if="idx < workflowSteps.length - 1" class="my-1 w-0.5 flex-1 min-h-6" :class="stepConnectorClass(workflowSteps[idx + 1].state)" />
+                                </div>
+                                <div class="min-w-0 pb-4">
+                                    <p class="text-xs font-bold uppercase tracking-wide" :class="step.state === 'upcoming' ? 'text-gray-400' : 'text-gov-blue'">{{ step.label }}</p>
+                                    <p class="mt-0.5 text-[11px] leading-tight text-gov-muted">{{ step.description }}</p>
                                     <p v-if="step.assigned_user_name" class="mt-1 break-words rounded bg-gov-off px-2 py-0.5 text-[11px] font-semibold text-gov-blue">
                                         {{ step.assigned_user_name }}
                                     </p>
                                     <p v-else class="mt-1 text-[11px] italic text-gray-400">Unassigned</p>
                                 </div>
-                            </template>
+                            </li>
+                        </ol>
+                        <div class="hidden justify-center md:flex">
+                            <div class="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start gap-y-2">
+                                <template v-for="(step, idx) in workflowSteps" :key="step.key">
+                                    <div v-if="idx > 0" class="flex items-center self-center px-2">
+                                        <div class="h-1 w-16 rounded" :class="stepConnectorClass(step.state)" />
+                                    </div>
+                                    <div class="flex min-w-[8rem] flex-col items-center text-center">
+                                        <div class="flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold" :class="stepStateClass(step.state)">
+                                            <template v-if="step.state === 'done'">✓</template>
+                                            <template v-else>{{ step.order }}</template>
+                                        </div>
+                                        <p class="mt-2 text-xs font-bold uppercase tracking-wide" :class="step.state === 'upcoming' ? 'text-gray-400' : 'text-gov-blue'">{{ step.label }}</p>
+                                        <p class="mt-0.5 max-w-[9rem] text-[11px] leading-tight text-gov-muted">{{ step.description }}</p>
+                                        <p v-if="step.assigned_user_name" class="mt-1 break-words rounded bg-gov-off px-2 py-0.5 text-[11px] font-semibold text-gov-blue">
+                                            {{ step.assigned_user_name }}
+                                        </p>
+                                        <p v-else class="mt-1 text-[11px] italic text-gray-400">Unassigned</p>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -432,21 +452,21 @@ const showDetails = ref(false);
                 <!-- Applicant information -->
                 <div class="panel">
                     <div class="panel-h">Applicant information</div>
-                    <dl class="grid grid-cols-2 gap-0 text-sm">
-                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Name</dt><dd>{{ application.applicant_detail?.full_name }}</dd></div>
-                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Beneficiary no.</dt><dd>{{ application.applicant_detail?.applicant_no }}</dd></div>
+                    <dl class="grid grid-cols-1 gap-0 text-sm md:grid-cols-2">
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Name</dt><dd class="break-words">{{ application.applicant_detail?.full_name }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Beneficiary no.</dt><dd class="break-words">{{ application.applicant_detail?.applicant_no }}</dd></div>
                         <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Date of birth / sex</dt><dd>{{ application.applicant_detail?.date_of_birth }} · {{ application.applicant_detail?.sex }}</dd></div>
                         <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Type</dt><dd>{{ application.applicant_detail?.beneficiary_label }}</dd></div>
-                        <div class="col-span-2 border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Address</dt><dd>{{ application.applicant_detail?.full_address }}</dd></div>
-                        <div class="px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Contact</dt><dd>{{ application.applicant_detail?.contact_number }}</dd></div>
-                        <div class="px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Email</dt><dd>{{ application.applicant_detail?.email }}</dd></div>
-                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Mother</dt><dd>{{ application.applicant_detail?.mother_name || '—' }} · {{ application.applicant_detail?.mother_occupation || '—' }}</dd></div>
-                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Father</dt><dd>{{ application.applicant_detail?.father_name || '—' }} · {{ application.applicant_detail?.father_occupation || '—' }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2 md:col-span-2"><dt class="text-xs font-bold uppercase text-gov-muted">Address</dt><dd class="break-words">{{ application.applicant_detail?.full_address }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Contact</dt><dd class="break-words">{{ application.applicant_detail?.contact_number }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Email</dt><dd class="break-all">{{ application.applicant_detail?.email }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Mother</dt><dd class="break-words">{{ application.applicant_detail?.mother_name || '—' }} · {{ application.applicant_detail?.mother_occupation || '—' }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Father</dt><dd class="break-words">{{ application.applicant_detail?.father_name || '—' }} · {{ application.applicant_detail?.father_occupation || '—' }}</dd></div>
                         <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">PWD</dt><dd>{{ application.applicant_detail?.is_pwd ? 'Yes' : 'No' }}</dd></div>
-                        <div v-if="application.applicant_detail?.is_pwd" class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">PWD type</dt><dd>{{ application.applicant_detail?.pwd_type_label }}<span v-if="application.applicant_detail?.pwd_type_detail"> — {{ application.applicant_detail.pwd_type_detail }}</span></dd></div>
-                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">School</dt><dd>{{ application.applicant_detail?.school_name || '—' }}</dd></div>
-                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Course / program</dt><dd>{{ application.applicant_detail?.course_or_program || '—' }}</dd></div>
-                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Year level</dt><dd>{{ application.applicant_detail?.year_level || '—' }}</dd></div>
+                        <div v-if="application.applicant_detail?.is_pwd" class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">PWD type</dt><dd class="break-words">{{ application.applicant_detail?.pwd_type_label }}<span v-if="application.applicant_detail?.pwd_type_detail"> — {{ application.applicant_detail.pwd_type_detail }}</span></dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">School</dt><dd class="break-words">{{ application.applicant_detail?.school_name || '—' }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Course / program</dt><dd class="break-words">{{ application.applicant_detail?.course_or_program || '—' }}</dd></div>
+                        <div class="border-b border-gov-border px-4 py-2"><dt class="text-xs font-bold uppercase text-gov-muted">Year level</dt><dd class="break-words">{{ application.applicant_detail?.year_level || '—' }}</dd></div>
                     </dl>
                 </div>
 
@@ -549,18 +569,18 @@ const showDetails = ref(false);
                             </div>
                             <div v-if="abilities.verify && application.is_in_verification" class="space-y-2 lg:col-span-3">
                                 <textarea v-model="remarks[document.id]" rows="2" placeholder="Remarks (required to reject or request revision)" />
-                                <div class="flex flex-wrap gap-1">
+                                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                     <button
-                                        class="btn-success btn-sm cursor-pointer"
+                                        class="btn-success btn-sm cursor-pointer w-full sm:w-auto"
                                         type="button"
                                         :disabled="awaitingRevision(document)"
                                         @click="verifyDocument(document.id, 'verify')"
                                     >
                                         Verify
                                     </button>
-                                    <button class="btn-danger btn-sm cursor-pointer" type="button" @click="verifyDocument(document.id, 'reject')">Reject document</button>
+                                    <button class="btn-danger btn-sm cursor-pointer w-full sm:w-auto" type="button" @click="verifyDocument(document.id, 'reject')">Reject document</button>
                                     <button
-                                        class="btn-warning btn-sm cursor-pointer"
+                                        class="btn-warning btn-sm cursor-pointer w-full sm:w-auto"
                                         type="button"
                                         :disabled="awaitingRevision(document)"
                                         @click="verifyDocument(document.id, 'revision')"
@@ -583,7 +603,7 @@ const showDetails = ref(false);
                             <template v-else>Verify every required document before you can mark this step as done.</template>
                         </p>
                         <button
-                            class="btn-primary mt-3"
+                            class="btn-primary mt-3 w-full sm:w-auto"
                             type="button"
                             :disabled="!application.can_complete_verification || completeVerification.processing"
                             @click="requestCompleteVerification"
@@ -694,14 +714,14 @@ const showDetails = ref(false);
                         </tbody>
                     </table>
 
-                    <div v-if="combinedEligibility" class="flex flex-wrap items-center justify-between gap-3 border-t border-gov-border px-4 py-3 text-sm">
-                        <div>
+                    <div v-if="combinedEligibility" class="flex flex-col gap-3 border-t border-gov-border px-4 py-3 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                        <div class="min-w-0">
                             <span class="text-xs font-bold uppercase tracking-wide" :class="statusTextClass(combinedEligibility.tone)">{{ combinedEligibility.status_label }}</span>
                             <p class="mt-2 text-gov-muted">{{ combinedEligibility.summary }}</p>
                         </div>
                         <button
                             v-if="abilities.evaluate && application.is_in_evaluation"
-                            class="btn-primary cursor-pointer"
+                            class="btn-primary cursor-pointer w-full sm:w-auto"
                             type="button"
                             :disabled="evaluate.processing"
                             @click="requestSaveEvaluate"
@@ -716,9 +736,9 @@ const showDetails = ref(false);
                     </dl>
 
                     <form v-if="abilities.evaluate && application.is_in_evaluation" class="grid gap-3 border-t border-gov-border p-4 md:grid-cols-2" @submit.prevent="requestSaveEvaluate">
-                        <p class="flex items-center text-sm">
+                        <p class="flex flex-col gap-1 text-sm sm:flex-row sm:items-center">
                             Eligibility is taken from the Step 1 validation:
-                            <span class="ml-2 text-xs font-bold uppercase tracking-wide" :class="statusTextClass(combinedEligibility?.tone)">{{ combinedEligibility?.status_label || 'Pending' }}</span>
+                            <span class="text-xs font-bold uppercase tracking-wide sm:ml-2" :class="statusTextClass(combinedEligibility?.tone)">{{ combinedEligibility?.status_label || 'Pending' }}</span>
                         </p>
                         <label class="flex items-center gap-2 text-sm font-normal normal-case tracking-normal">
                             <input v-model="evaluate.documents_complete" type="checkbox"> Documents complete
@@ -739,7 +759,7 @@ const showDetails = ref(false);
                         </div>
                         <div class="md:col-span-2"><label>Remarks</label><textarea v-model="evaluate.remarks" rows="2" required /></div>
                         <div class="md:col-span-2">
-                            <button class="btn-primary cursor-pointer" type="submit" :disabled="evaluate.processing">
+                            <button class="btn-primary cursor-pointer w-full sm:w-auto" type="submit" :disabled="evaluate.processing">
                                 {{ evaluate.recommendation === 'revision' ? 'Send back for revision' : 'Send to next step' }}
                             </button>
                         </div>
@@ -769,10 +789,10 @@ const showDetails = ref(false);
                                 <p class="mt-1 text-xs text-gov-muted">Taken from the program settings and cannot be changed here.</p>
                             </div>
                             <div class="md:col-span-2"><label>Remarks (required when rejecting or returning)</label><textarea v-model="decide.remarks" rows="3" /></div>
-                            <div class="md:col-span-2 flex flex-wrap gap-2">
-                                <button class="btn-success" type="button" @click="saveDecision('approved')">Approve</button>
-                                <button class="btn-danger" type="button" @click="saveDecision('rejected')">Reject</button>
-                                <button class="btn-warning" type="button" @click="saveDecision('revision')">Return for revision</button>
+                            <div class="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                <button class="btn-success w-full sm:w-auto" type="button" @click="saveDecision('approved')">Approve</button>
+                                <button class="btn-danger w-full sm:w-auto" type="button" @click="saveDecision('rejected')">Reject</button>
+                                <button class="btn-warning w-full sm:w-auto" type="button" @click="saveDecision('revision')">Return for revision</button>
                             </div>
                         </div>
                         <p v-else-if="application.latest_approval" class="text-sm italic text-gov-muted">A final decision has already been recorded.</p>

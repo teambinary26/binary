@@ -17,5 +17,5 @@ const badgeClass = computed(() => ({
 </script>
 
 <template>
-    <span :class="badgeClass" :title="description">{{ label || status }}</span>
+    <span :class="[badgeClass, 'max-w-full whitespace-normal break-words']" :title="description">{{ label || status }}</span>
 </template>
