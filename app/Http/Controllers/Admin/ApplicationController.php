@@ -195,21 +195,13 @@ class ApplicationController extends Controller
 
         $workflowSteps = collect(WorkflowStep::ordered())->map(function (WorkflowStep $step) use ($application, $globalAssignments) {
             $assigned = $globalAssignments->where('workflow_step', $step);
-            $currentStep = $application->currentWorkflowStep();
-
-            $state = 'upcoming';
-            if ($step->order() < $currentStep->order()) {
-                $state = 'done';
-            } elseif ($step === $currentStep) {
-                $state = 'current';
-            }
 
             return [
                 'key' => $step->value,
                 'label' => $step->label(),
                 'description' => $step->description(),
                 'order' => $step->order(),
-                'state' => $state,
+                'state' => $application->workflowStepState($step),
                 'assigned_user_name' => $assigned->map(fn ($row) => $row->user?->name)->filter()->implode(', ') ?: null,
             ];
         });

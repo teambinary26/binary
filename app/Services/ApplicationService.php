@@ -318,7 +318,11 @@ class ApplicationService
             return;
         }
 
-        $this->assignToWorkflowStep($application, $application->currentWorkflowStep());
+        $step = $application->currentWorkflowStep();
+
+        if ($step) {
+            $this->assignToWorkflowStep($application, $step);
+        }
     }
 
     public function syncOpenAssignments(): int

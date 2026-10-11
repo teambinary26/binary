@@ -259,6 +259,39 @@ test('staff assigned to verification can verify a document', function () {
     expect($document->fresh()->verification?->status)->toBe(DocumentVerificationStatus::Verified);
 });
 
+test('workflow progress matches the application status', function () {
+    $admin = User::query()->where('email', 'admin@nabua.gov.ph')->firstOrFail();
+
+    $cases = [
+        ApplicationStatus::UnderVerification->value => ['current', 'upcoming', 'upcoming'],
+        ApplicationStatus::UnderEvaluation->value => ['done', 'current', 'upcoming'],
+        ApplicationStatus::ForApproval->value => ['done', 'done', 'current'],
+        ApplicationStatus::Approved->value => ['done', 'done', 'done'],
+        ApplicationStatus::ScheduledForRelease->value => ['done', 'done', 'done'],
+        ApplicationStatus::Released->value => ['done', 'done', 'done'],
+    ];
+
+    foreach ($cases as $status => $states) {
+        $application = Application::query()->where('status', $status)->first();
+
+        if (! $application) {
+            continue;
+        }
+
+        $this->actingAs($admin)
+            ->get(route('admin.applications.show', $application))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('workflowSteps.0.state', $states[0])
+                ->where('workflowSteps.1.state', $states[1])
+                ->where('workflowSteps.2.state', $states[2])
+            );
+    }
+
+    expect(array_filter($cases, fn ($status) => Application::query()->where('status', $status)->exists(), ARRAY_FILTER_USE_KEY))
+        ->not->toBeEmpty();
+});
+
 test('application show offers the next application in the staff member assigned step', function () {
     $staff = User::query()->where('email', 'staff@nabua.gov.ph')->firstOrFail();
     $queue = Application::query()

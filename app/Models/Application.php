@@ -288,7 +288,7 @@ class Application extends Model
             && in_array($this->latestEvaluation->recommendation, ['approval', 'rejection'], true);
     }
 
-    public function currentWorkflowStep(): WorkflowStep
+    public function currentWorkflowStep(): ?WorkflowStep
     {
         return match ($this->status) {
             ApplicationStatus::Submitted,
@@ -298,12 +298,46 @@ class Application extends Model
 
             ApplicationStatus::UnderEvaluation => WorkflowStep::Evaluation,
 
-            ApplicationStatus::ForApproval,
-            ApplicationStatus::Approved,
-            ApplicationStatus::Rejected => WorkflowStep::Approval,
+            ApplicationStatus::ForApproval => WorkflowStep::Approval,
 
-            default => WorkflowStep::Verification,
+            default => null,
         };
+    }
+
+    public function workflowStepState(WorkflowStep $step): string
+    {
+        $current = $this->currentWorkflowStep();
+
+        if ($current) {
+            if ($step->order() < $current->order()) {
+                return 'done';
+            }
+
+            return $step === $current ? 'current' : 'upcoming';
+        }
+
+        if (in_array($this->status, [
+            ApplicationStatus::Approved,
+            ApplicationStatus::ScheduledForRelease,
+            ApplicationStatus::Released,
+            ApplicationStatus::Completed,
+        ], true)) {
+            return 'done';
+        }
+
+        if ($this->status === ApplicationStatus::Rejected) {
+            $this->loadMissing(['latestApproval', 'latestEvaluation']);
+
+            if ($this->latestApproval) {
+                return 'done';
+            }
+
+            if ($this->latestEvaluation) {
+                return $step === WorkflowStep::Approval ? 'upcoming' : 'done';
+            }
+        }
+
+        return 'upcoming';
     }
 
     /**
@@ -385,7 +419,7 @@ class Application extends Model
 
         $current = $this->currentWorkflowStep();
 
-        if ($viewer?->isAdmin() || $assigned->contains($current)) {
+        if ($current && ($viewer?->isAdmin() || $assigned->contains($current))) {
             return $current;
         }
 
